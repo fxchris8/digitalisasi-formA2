@@ -1,0 +1,31 @@
+import type { NextFunction, Request, Response } from "express"
+import { AppError } from "@/utils/app-error"
+import { sendError } from "@/utils/response"
+
+/**
+ * Global error-handling middleware.
+ * Register this LAST in app.ts after all routes.
+ *
+ * Handles:
+ *  - AppError  → uses its statusCode and errorCode
+ *  - Error     → generic 500
+ */
+export function errorHandler(
+	err: unknown,
+	_req: Request,
+	res: Response,
+	// eslint-disable-next-line @typescript-eslint/no-unused-vars
+	_next: NextFunction,
+): void {
+	if (err instanceof AppError) {
+		sendError(res, err.message, err.errorCode, err.statusCode)
+		return
+	}
+
+	if (err instanceof Error) {
+		sendError(res, err.message, "INTERNAL_SERVER_ERROR", 500)
+		return
+	}
+
+	sendError(res, "An unexpected error occurred", "INTERNAL_SERVER_ERROR", 500)
+}
