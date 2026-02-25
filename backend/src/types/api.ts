@@ -4,8 +4,8 @@
  * @template T - Shape of the `data` payload (omit for error responses).
  */
 export interface ApiResponse<T = undefined> {
-	success: boolean
-	message: string
-	data?: T
-	error?: string
+  success: boolean
+  message: string
+  data?: T
+  error?: string
 }

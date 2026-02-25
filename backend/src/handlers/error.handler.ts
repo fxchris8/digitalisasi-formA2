@@ -11,21 +11,20 @@ import { sendError } from "@/utils/response"
  *  - Error     → generic 500
  */
 export function errorHandler(
-	err: unknown,
-	_req: Request,
-	res: Response,
-	// eslint-disable-next-line @typescript-eslint/no-unused-vars
-	_next: NextFunction,
+  err: unknown,
+  _req: Request,
+  res: Response,
+  _next: NextFunction,
 ): void {
-	if (err instanceof AppError) {
-		sendError(res, err.message, err.errorCode, err.statusCode)
-		return
-	}
+  if (err instanceof AppError) {
+    sendError(res, err.message, err.errorCode, err.statusCode)
+    return
+  }
 
-	if (err instanceof Error) {
-		sendError(res, err.message, "INTERNAL_SERVER_ERROR", 500)
-		return
-	}
+  if (err instanceof Error) {
+    sendError(res, err.message, "INTERNAL_SERVER_ERROR", 500)
+    return
+  }
 
-	sendError(res, "An unexpected error occurred", "INTERNAL_SERVER_ERROR", 500)
+  sendError(res, "An unexpected error occurred", "INTERNAL_SERVER_ERROR", 500)
 }
