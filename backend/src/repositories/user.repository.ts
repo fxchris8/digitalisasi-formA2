@@ -31,10 +31,16 @@ export async function createUser(
   data: RegisterDto & { hashedPassword: string },
 ): Promise<SafeUser> {
   const result = await pool.query<SafeUser>(
-    `INSERT INTO users (full_name, user_name, email, password)
-         VALUES ($1, $2, $3, $4)
-         RETURNING id, full_name, user_name, email, role, created_at, updated_at`,
-    [data.full_name, data.user_name, data.email, data.hashedPassword],
+    `INSERT INTO users (full_name, user_name, email, password, divisi)
+         VALUES ($1, $2, $3, $4, $5)
+         RETURNING id, full_name, user_name, email, role, divisi, created_at, updated_at`,
+    [
+      data.full_name,
+      data.user_name,
+      data.email,
+      data.hashedPassword,
+      data.divisi,
+    ],
   )
   const row = result.rows[0]
   if (!row)
