@@ -13,16 +13,6 @@ async function createSchema(): Promise<void> {
     await client.query("BEGIN")
 
     // ── ENUM TYPES ────────────────────────────────────────────────────────────
-    //
-    // form_status  : status utama form_a2 selama siklus hidupnya.
-    //   'pending'  mencakup semua tahap approval (spm → nautica → finance).
-    //   Tahap aktif dilacak via kolom current_step di form_a2.
-    //
-    // approval_step: nilai-nya sengaja disamakan dengan users.department,
-    //   sehingga untuk mencari approver cukup WHERE department = current_step.
-    //
-    // approval_status: hasil aksi per-baris di form_a2_approval_log.
-
     await client.query(/* sql */ `
       DO $$ BEGIN
         CREATE TYPE form_status AS ENUM (
@@ -61,7 +51,6 @@ async function createSchema(): Promise<void> {
     `)
 
     // ── TABLES ────────────────────────────────────────────────────────────────
-
     await client.query(/* sql */ `
       CREATE TABLE IF NOT EXISTS users (
         id            UUID          PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -113,16 +102,6 @@ async function createSchema(): Promise<void> {
     `)
 
     // Form A2 adalah lanjutan dari CR9, memiliki alur approval multi-step.
-    //
-    // Alur status:
-    //   draft
-    //     └─ cabang submit ──────────────────────────────────► submitted
-    //                                                            └─ staff SPM lengkapi berita acara & submit ke manager
-    //                                                                └─ pending (current_step = 'spm')
-    //                                                                     ├─ approved ──► pending (current_step = 'nautica')
-    //                                                                     ├─ revision ──► revision (current_step = 'spm')
-    //                                                                     └─ rejected ──► rejected ✗
-    //                                                                  (dst. untuk nautica → finance → approved ✓)
     await client.query(/* sql */ `
       CREATE TABLE IF NOT EXISTS form_a2 (
         id                      UUID            PRIMARY KEY DEFAULT gen_random_uuid(),
