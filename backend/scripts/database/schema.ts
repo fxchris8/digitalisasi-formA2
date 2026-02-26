@@ -6,13 +6,13 @@ expand(dotenv.config())
 
 const pool = new Pool({ connectionString: process.env.DATABASE_URL })
 
-async function createSchema(): Promise<void> {
+async function schema(): Promise<void> {
   const client = await pool.connect()
 
   try {
     await client.query("BEGIN")
 
-    // ── ENUM TYPES ────────────────────────────────────────────────────────────
+    // ── ENUM TYPES ──
     await client.query(/* sql */ `
       DO $$ BEGIN
         CREATE TYPE form_status AS ENUM (
@@ -50,7 +50,7 @@ async function createSchema(): Promise<void> {
       END $$;
     `)
 
-    // ── TABLES ────────────────────────────────────────────────────────────────
+    // ── TABLES ──
     await client.query(/* sql */ `
       CREATE TABLE IF NOT EXISTS users (
         id            UUID          PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -182,4 +182,4 @@ async function createSchema(): Promise<void> {
   }
 }
 
-createSchema()
+schema()
