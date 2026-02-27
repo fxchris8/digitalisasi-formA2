@@ -15,7 +15,7 @@ export default function DashboardPage() {
             <span className="font-medium">Nama:</span> {user.full_name}
           </p>
           <p>
-            <span className="font-medium">Username:</span> {user.user_name}
+            <span className="font-medium">Username:</span> {user.username}
           </p>
           <p>
             <span className="font-medium">Email:</span> {user.email}
