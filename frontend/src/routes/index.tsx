@@ -6,9 +6,9 @@ import {
 import { RoleGuard } from "@/components/guards/role-guard"
 import { MainLayout } from "@/components/layouts/main-layout"
 import { ROLES } from "@/lib/rbac"
-import ForbiddenPage from "@/pages/403"
 import LoginPage from "@/pages/auth/login"
 import DashboardPage from "@/pages/dashboard"
+import ForbiddenPage from "@/pages/forbidden"
 
 export const router = createBrowserRouter([
   {
