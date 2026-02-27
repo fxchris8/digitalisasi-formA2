@@ -18,7 +18,7 @@ export default function LoginPage() {
   const navigate = useNavigate()
   const { login } = useAuth()
 
-  const [userName, setUserName] = useState("")
+  const [username, setUsername] = useState("")
   const [password, setPassword] = useState("")
   const [isLoading, setIsLoading] = useState(false)
 
@@ -27,7 +27,7 @@ export default function LoginPage() {
     setIsLoading(true)
 
     try {
-      const res = await loginApi({ user_name: userName, password })
+      const res = await loginApi({ username, password })
       if (res.data) {
         login(res.data)
         navigate("/dashboard")
@@ -54,13 +54,13 @@ export default function LoginPage() {
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="user_name">Username</Label>
+              <Label htmlFor="username">Username</Label>
               <Input
-                id="user_name"
+                id="username"
                 type="text"
                 placeholder="Masukkan username"
-                value={userName}
-                onChange={(e) => setUserName(e.target.value)}
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
                 required
               />
             </div>
