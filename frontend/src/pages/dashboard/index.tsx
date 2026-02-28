@@ -1,33 +1,14 @@
 import { useAuth } from "@/contexts/auth.context"
+import { ROLES } from "@/lib/rbac"
+import AdminView from "./_views/admin-view"
+import GeneralView from "./_views/general-view"
+import UserView from "./_views/user-view"
 
 export default function DashboardPage() {
   const { user } = useAuth()
 
-  return (
-    <div className="p-8">
-      <h1 className="mb-4 text-2xl font-bold">Dashboard</h1>
-      {user && (
-        <div className="space-y-2 text-sm">
-          <p>
-            <span className="font-medium">ID:</span> {user.id}
-          </p>
-          <p>
-            <span className="font-medium">Nama:</span> {user.full_name}
-          </p>
-          <p>
-            <span className="font-medium">Username:</span> {user.username}
-          </p>
-          <p>
-            <span className="font-medium">Email:</span> {user.email}
-          </p>
-          <p>
-            <span className="font-medium">Role:</span> {user.role}
-          </p>
-          <p>
-            <span className="font-medium">Divisi:</span> {user.divisi}
-          </p>
-        </div>
-      )}
-    </div>
-  )
+  if (user?.role === ROLES.ADMIN) return <AdminView />
+  if (user?.role === ROLES.USER) return <UserView />
+
+  return <GeneralView />
 }
