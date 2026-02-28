@@ -86,6 +86,16 @@ const users: Omit<SeedUser, "password">[] = [
     department: "cabang",
     branch_office: "Makassar",
   },
+
+  // ── User Biasa ─────────────────────────────────────────────────────────
+  {
+    full_name: "User Biasa",
+    username: "user.biasa",
+    email: "user.biasa@spil.co.id",
+    role: "user",
+    department: null,
+    branch_office: null,
+  },
 ]
 
 async function seed(): Promise<void> {
