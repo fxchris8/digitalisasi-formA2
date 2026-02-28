@@ -75,7 +75,7 @@ const users: Omit<SeedUser, "password">[] = [
     username: "cabang.surabaya",
     email: "cabang.surabaya@spil.co.id",
     role: "staff",
-    department: null,
+    department: "cabang",
     branch_office: "Surabaya",
   },
   {
@@ -83,7 +83,7 @@ const users: Omit<SeedUser, "password">[] = [
     username: "cabang.makassar",
     email: "cabang.makassar@spil.co.id",
     role: "staff",
-    department: null,
+    department: "cabang",
     branch_office: "Makassar",
   },
 ]
