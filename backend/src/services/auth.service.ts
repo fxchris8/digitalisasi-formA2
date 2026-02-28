@@ -12,7 +12,7 @@ import type {
 export async function register(dto: RegisterDto): Promise<void> {
   const [existingEmail, existingUserName] = await Promise.all([
     userRepository.findByEmail(dto.email),
-    userRepository.findByUserName(dto.user_name),
+    userRepository.findByUserName(dto.username),
   ])
 
   if (existingEmail) {
@@ -35,7 +35,7 @@ export async function login(dto: LoginDto): Promise<{
   token: string
   user: Omit<SafeUser, "created_at" | "updated_at">
 }> {
-  const user = await userRepository.findByUserName(dto.user_name)
+  const user = await userRepository.findByUserName(dto.username)
 
   if (!user) {
     throw new AppError("Invalid credentials", 401, "INVALID_CREDENTIALS")
@@ -49,7 +49,7 @@ export async function login(dto: LoginDto): Promise<{
 
   const token = signToken({
     id: user.id,
-    user_name: user.user_name,
+    username: user.username,
     email: user.email,
     role: user.role,
   })

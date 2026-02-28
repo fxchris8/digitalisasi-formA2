@@ -5,7 +5,7 @@ import type { RegisterDto } from "@/validations/auth.validation"
 
 export async function findByUserName(userName: string): Promise<User | null> {
   const result = await pool.query<User>(
-    "SELECT * FROM users WHERE user_name = $1 LIMIT 1",
+    "SELECT * FROM users WHERE username = $1 LIMIT 1",
     [userName],
   )
   return result.rows[0] ?? null
@@ -31,15 +31,16 @@ export async function createUser(
   data: RegisterDto & { hashedPassword: string },
 ): Promise<SafeUser> {
   const result = await pool.query<SafeUser>(
-    `INSERT INTO users (full_name, user_name, email, password, divisi)
-         VALUES ($1, $2, $3, $4, $5)
-         RETURNING id, full_name, user_name, email, role, divisi, created_at, updated_at`,
+    `INSERT INTO users (full_name, username, email, password, department, branch_office)
+         VALUES ($1, $2, $3, $4, $5, $6)
+         RETURNING id, full_name, username, email, role, department, branch_office, created_at, updated_at`,
     [
       data.full_name,
-      data.user_name,
+      data.username,
       data.email,
       data.hashedPassword,
-      data.divisi,
+      data.department ?? null,
+      data.branch_office ?? null,
     ],
   )
   const row = result.rows[0]
