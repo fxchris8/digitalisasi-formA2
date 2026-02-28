@@ -21,9 +21,14 @@ export type Role = (typeof ROLES)[keyof typeof ROLES]
 export type Permission =
   | "view:dashboard"
   | "view:users"
-  | "view:form-a2"
   | "manage:users"
+  | "view:form-cr9"
+  | "manage:form-cr9"
+  | "view:form-a2"
   | "manage:form-a2"
+  | "view:approval"
+  | "manage:approval"
+  | "view:approval-log"
 
 /**
  * Mapping role → permissions yang dimiliki.
@@ -34,20 +39,61 @@ const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     "view:dashboard",
     "view:users",
     "manage:users",
+    "view:form-cr9",
+    "manage:form-cr9",
+    "view:form-a2",
+    "manage:form-a2",
+    "view:approval-log",
+  ],
+  [ROLES.MANAGER]: [
+    "view:dashboard",
+    "view:form-cr9",
+    "view:form-a2",
+    "manage:form-a2",
+    "view:approval",
+    "manage:approval",
+  ],
+  [ROLES.STAFF]: [
+    "view:dashboard",
+    "view:form-cr9",
+    "manage:form-cr9",
+    "view:form-a2",
     "manage:form-a2",
   ],
-  [ROLES.MANAGER]: ["view:dashboard", "view:form-a2", "manage:form-a2"],
-  [ROLES.STAFF]: ["view:dashboard", "view:form-a2", "manage:form-a2"],
   [ROLES.USER]: ["view:dashboard"],
 }
 
 /**
- * Cek apakah role memiliki permission tertentu.
+ * Permission yang juga diberikan berdasarkan department,
+ * terlepas dari role.
+ */
+const DEPARTMENT_PERMISSIONS: Record<string, Permission[]> = {
+  finance: ["view:approval", "manage:approval"],
+}
+
+/**
+ * Cek apakah role memiliki permission tertentu (role-only).
  */
 export function hasPermission(role: string, permission: Permission): boolean {
   const permissions = ROLE_PERMISSIONS[role as Role]
   if (!permissions) return false
   return permissions.includes(permission)
+}
+
+/**
+ * Cek akses berdasarkan role DAN department.
+ * Gunakan ini di komponen (sidebar, guard, dll) sebagai pengganti hasPermission.
+ */
+export function hasAccess(
+  user: { role: string; department: string | null },
+  permission: Permission,
+): boolean {
+  if (hasPermission(user.role, permission)) return true
+  if (user.department) {
+    const deptPerms = DEPARTMENT_PERMISSIONS[user.department] ?? []
+    if (deptPerms.includes(permission)) return true
+  }
+  return false
 }
 
 /**
