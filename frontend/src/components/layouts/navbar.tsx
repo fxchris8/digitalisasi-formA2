@@ -31,7 +31,7 @@ export function Navbar() {
   const username = user?.full_name || "User"
   const email = user?.email || "user@example.com"
   const role = user?.role || "User"
-  const divisi = user?.divisi || "N/A"
+  const departement = user?.department ?? "-"
 
   return (
     <>
@@ -81,7 +81,7 @@ export function Navbar() {
                       {email}
                     </p>
                     <p className="text-xs text-muted-foreground truncate">
-                      {role} | {divisi}
+                      {role} | {departement}
                     </p>
                   </div>
                   <DropdownMenuSeparator />
@@ -89,7 +89,7 @@ export function Navbar() {
                     className="text-red-600 focus:text-red-600 cursor-pointer"
                     onClick={() => setShowLogoutDialog(true)}
                   >
-                    <LogOut className="mr-2 h-4 w-4" />
+                    <LogOut className="text-red-600 mr-2 h-4 w-4" />
                     Logout
                   </DropdownMenuItem>
                 </DropdownMenuContent>
