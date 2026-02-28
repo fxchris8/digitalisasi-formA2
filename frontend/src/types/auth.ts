@@ -4,5 +4,6 @@ export interface User {
   username: string
   email: string
   role: string
-  divisi: string
+  department: string | null
+  branch_office: string | null
 }
