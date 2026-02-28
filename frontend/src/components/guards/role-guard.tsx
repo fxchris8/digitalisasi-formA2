@@ -1,6 +1,6 @@
 import { Navigate, Outlet } from "react-router"
 import { useAuth } from "@/contexts/auth.context"
-import { hasPermission, hasRole, type Permission, type Role } from "@/lib/rbac"
+import { hasAccess, hasRole, type Permission, type Role } from "@/lib/rbac"
 
 interface RoleGuardProps {
   /** Izinkan akses berdasarkan role tertentu */
@@ -35,9 +35,7 @@ export function RoleGuard({
   }
 
   const roleOk = allowedRoles ? hasRole(user.role, allowedRoles) : true
-  const permOk = requiredPermission
-    ? hasPermission(user.role, requiredPermission)
-    : true
+  const permOk = requiredPermission ? hasAccess(user, requiredPermission) : true
 
   if (!roleOk || !permOk) {
     return <Navigate to={redirectTo} replace />
@@ -73,7 +71,7 @@ export function Can({
   if (!user) return <>{fallback}</>
 
   const roleOk = allowedRoles ? hasRole(user.role, allowedRoles) : true
-  const permOk = permission ? hasPermission(user.role, permission) : true
+  const permOk = permission ? hasAccess(user, permission) : true
 
   return <>{roleOk && permOk ? children : fallback}</>
 }
