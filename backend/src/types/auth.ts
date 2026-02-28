@@ -3,7 +3,7 @@
  */
 export interface JwtPayload {
   id: string
-  user_name: string
+  username: string
   email: string
   role: string
 }

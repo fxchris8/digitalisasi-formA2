@@ -1,8 +1,9 @@
 export interface User {
   id: string
   full_name: string
-  user_name: string
+  username: string
   email: string
   role: string
-  divisi: string
+  department: string | null
+  branch_office: string | null
 }

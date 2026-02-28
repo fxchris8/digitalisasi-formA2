@@ -13,7 +13,7 @@ createRoot(rootElement).render(
   <StrictMode>
     <AuthProvider>
       <RouterProvider router={router} />
-      <Toaster richColors position="top-right" />
+      <Toaster richColors={true} position="top-right" />
     </AuthProvider>
   </StrictMode>,
 )
