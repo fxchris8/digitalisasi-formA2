@@ -49,12 +49,12 @@ export function MainLayout() {
   const [collapsed, setCollapsed] = useState(false)
 
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="h-screen flex flex-col overflow-hidden">
       <Navbar />
-      <div className="flex flex-1">
+      <div className="flex flex-1 overflow-hidden">
         <Sidebar collapsed={collapsed} />
-        <div className="flex-1 flex flex-col min-w-0">
-          <header className="h-12 flex items-center gap-2 px-4">
+        <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+          <header className="h-12 shrink-0 flex items-center gap-2 px-4 bg-white">
             <button
               type="button"
               onClick={() => setCollapsed((prev) => !prev)}
@@ -65,7 +65,7 @@ export function MainLayout() {
             </button>
             <AppBreadcrumb />
           </header>
-          <main className="flex-1 overflow-auto px-6 py-4">
+          <main className="flex-1 overflow-y-auto px-6 py-4">
             <Outlet />
           </main>
         </div>
