@@ -6,11 +6,35 @@ expand(dotenv.config())
 
 const pool = new Pool({ connectionString: process.env.DATABASE_URL })
 
+const isFresh = process.argv.includes("--fresh")
+
 async function schema(): Promise<void> {
   const client = await pool.connect()
 
   try {
     await client.query("BEGIN")
+
+    // ── DROP (only with --fresh flag)
+    if (isFresh) {
+      console.log("[db] --fresh: dropping all tables and types...")
+
+      // Drop tables in reverse dependency order (children before parents)
+      await client.query(/* sql */ `
+        DROP TABLE IF EXISTS
+          form_a2_revision,
+          form_a2_approval_log,
+          form_a2_detail,
+          form_a2,
+          form_cr9,
+          form_number_counter,
+          users
+        CASCADE
+      `)
+
+      await client.query(/* sql */ `
+        DROP TYPE IF EXISTS form_status, approval_status, approval_step CASCADE
+      `)
+    }
 
     // ── ENUM TYPES ──
     await client.query(/* sql */ `
@@ -66,13 +90,15 @@ async function schema(): Promise<void> {
       )
     `)
 
-    // Counter untuk generate nomor urut form per tipe per tahun.
+    // Counter untuk generate nomor urut form per tipe per cabang per tahun.
+    // branch_office diambil langsung dari field branch_office user (cabang) atau dept (SPM dll).
     await client.query(/* sql */ `
       CREATE TABLE IF NOT EXISTS form_number_counter (
-        form_type   VARCHAR(20)   NOT NULL,   -- 'CR9' | 'A2'
-        year        INTEGER       NOT NULL,
-        last_seq    INTEGER       NOT NULL DEFAULT 0,
-        PRIMARY KEY (form_type, year)
+        form_type     VARCHAR(20)   NOT NULL,   -- 'CR9' | 'A2'
+        branch_office VARCHAR(100)  NOT NULL,   -- e.g. 'Surabaya' | 'Makassar' | 'SPM'
+        year          INTEGER       NOT NULL,
+        last_seq      INTEGER       NOT NULL DEFAULT 0,
+        PRIMARY KEY (form_type, branch_office, year)
       )
     `)
 
@@ -81,23 +107,24 @@ async function schema(): Promise<void> {
       CREATE TABLE IF NOT EXISTS form_cr9 (
         id            UUID          PRIMARY KEY DEFAULT gen_random_uuid(),
         created_by    UUID          NOT NULL REFERENCES users(id),
+        branch_office VARCHAR(100)  NOT NULL,   -- diambil dari user.branch_office atau dept (SPM, dll)
         seq_number    INTEGER       NOT NULL,
         month         INTEGER       NOT NULL,
         year          INTEGER       NOT NULL,
-        form_number   VARCHAR(50)   NOT NULL,   -- e.g. CR9/0001/01/2024
+        form_number   VARCHAR(100)  NOT NULL UNIQUE, -- e.g. CR9/Surabaya/0001/01/2026
         seafarer_code VARCHAR(100)  NOT NULL,
         seaman_code   VARCHAR(100)  NOT NULL,
         seaman_name   VARCHAR(255)  NOT NULL,
         position      VARCHAR(100)  NOT NULL,
         ship          VARCHAR(100)  NOT NULL,
+        complaint     VARCHAR(255)  NOT NULL,   -- jenis keluhan / sakit
         cr9_url       VARCHAR(500)  NOT NULL,
         receipt_url   VARCHAR(500)  NOT NULL,
         amount        NUMERIC(15,2) NOT NULL,
         status        VARCHAR(50)   NOT NULL DEFAULT 'draft',
         submitted_at  TIMESTAMP,
         created_at    TIMESTAMP     NOT NULL DEFAULT NOW(),
-        updated_at    TIMESTAMP     NOT NULL DEFAULT NOW(),
-        UNIQUE (seq_number, month, year)
+        updated_at    TIMESTAMP     NOT NULL DEFAULT NOW()
       )
     `)
 
@@ -171,7 +198,9 @@ async function schema(): Promise<void> {
 
     await client.query("COMMIT")
 
-    console.log("[db] Schema created successfully.")
+    console.log(
+      `[db] Schema ${isFresh ? "recreated (fresh)" : "applied"} successfully.`,
+    )
   } catch (err) {
     await client.query("ROLLBACK")
     console.error("[db] Failed to create schema:", err)
