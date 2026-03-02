@@ -52,6 +52,8 @@ export async function login(dto: LoginDto): Promise<{
     username: user.username,
     email: user.email,
     role: user.role,
+    department: user.department,
+    branch_office: user.branch_office,
   })
 
   const {
