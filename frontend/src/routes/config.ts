@@ -7,6 +7,8 @@ export const ROUTES = {
   users: { path: "/users", label: "Kelola Users" },
   formCr9: { path: "/form-cr9", label: "Form CR9" },
   formCr9Create: { path: "/form-cr9/create", label: "Buat Baru" },
+  formCr9Detail: { path: "/form-cr9/:id", label: "Detail Form CR9" },
+  formCr9Edit: { path: "/form-cr9/:id/edit", label: "Edit Form CR9" },
   formA2: { path: "/form-a2", label: "Form A2" },
   formA2Create: { path: "/form-a2/create", label: "Buat Baru" },
   approval: { path: "/approval", label: "Approval" },
