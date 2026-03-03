@@ -128,8 +128,11 @@ export async function create(
       INSERT INTO form_cr9 (
         created_by, branch_office, seq_number, month, year, form_number,
         seafarer_code, seaman_code, seaman_name, position, ship,
-        complaint, cr9_url, receipt_url, amount
-      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
+        complaint,
+        cr9_url, cr9_url_added_by, cr9_url_added_at,
+        receipt_url, receipt_url_added_by, receipt_url_added_at,
+        amount
+      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,NOW(),$15,$16,NOW(),$17)
       RETURNING *
     `,
     [
@@ -146,7 +149,9 @@ export async function create(
       dto.ship,
       dto.complaint,
       dto.cr9_url,
+      createdBy,
       dto.receipt_url,
+      createdBy,
       dto.amount,
     ],
   )
@@ -156,6 +161,7 @@ export async function create(
 export async function update(
   id: string,
   dto: UpdateFormCr9Dto,
+  userId: string,
 ): Promise<FormCr9 | null> {
   const fields: string[] = []
   const values: unknown[] = []
@@ -187,11 +193,15 @@ export async function update(
   }
   if (dto.cr9_url !== undefined) {
     fields.push(`cr9_url = $${idx++}`)
-    values.push(dto.cr9_url)
+    fields.push(`cr9_url_added_by = $${idx++}`)
+    fields.push(`cr9_url_added_at = NOW()`)
+    values.push(dto.cr9_url, userId)
   }
   if (dto.receipt_url !== undefined) {
     fields.push(`receipt_url = $${idx++}`)
-    values.push(dto.receipt_url)
+    fields.push(`receipt_url_added_by = $${idx++}`)
+    fields.push(`receipt_url_added_at = NOW()`)
+    values.push(dto.receipt_url, userId)
   }
   if (dto.amount !== undefined) {
     fields.push(`amount = $${idx++}`)

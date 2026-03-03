@@ -81,6 +81,24 @@ export async function updateFormCr9Handler(
   }
 }
 
+export async function submitFormCr9Handler(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    if (!req.user) {
+      next(new AppError("Unauthorized", 401, "UNAUTHORIZED"))
+      return
+    }
+    const id = req.params.id as string
+    const result = await formCr9Service.submitFormCr9(req.user, id)
+    sendSuccess(res, "Form CR9 berhasil diajukan dan Form A2 dibuat", result)
+  } catch (err) {
+    next(err)
+  }
+}
+
 export async function deleteFormCr9Handler(
   req: Request,
   res: Response,

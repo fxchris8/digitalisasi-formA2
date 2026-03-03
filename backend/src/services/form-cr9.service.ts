@@ -1,3 +1,4 @@
+import * as a2Repo from "@/repositories/form-a2.repository"
 import * as repo from "@/repositories/form-cr9.repository"
 import type { JwtPayload } from "@/types/auth"
 import { AppError } from "@/utils/app-error"
@@ -139,7 +140,7 @@ export async function updateFormCr9(
     throw new AppError("Akses ditolak", 403, "FORBIDDEN")
   }
 
-  const updated = await repo.update(id, dto)
+  const updated = await repo.update(id, dto, user.id)
   if (!updated)
     throw new AppError(
       "Gagal mengupdate Form CR9",
@@ -147,6 +148,45 @@ export async function updateFormCr9(
       "INTERNAL_SERVER_ERROR",
     )
   return updated
+}
+
+export async function submitFormCr9(user: JwtPayload, id: string) {
+  // Hanya staff & admin yang boleh submit
+  if (user.role !== "admin" && user.role !== "staff") {
+    throw new AppError(
+      "Hanya staff yang dapat mengajukan Form CR9",
+      403,
+      "FORBIDDEN",
+    )
+  }
+
+  const form = await repo.findById(id)
+  if (!form) throw new AppError("Form CR9 tidak ditemukan", 404, "NOT_FOUND")
+
+  if (form.status !== "draft") {
+    throw new AppError(
+      "Hanya form berstatus draft yang dapat diajukan",
+      422,
+      "UNPROCESSABLE",
+    )
+  }
+
+  // Cabang hanya boleh submit milik branch-nya sendiri
+  const branchFilter = getBranchFilter(user)
+  if (branchFilter !== null && form.branch_office !== branchFilter) {
+    throw new AppError("Akses ditolak", 403, "FORBIDDEN")
+  }
+
+  const now = new Date()
+  const { cr9, a2 } = await a2Repo.submitCr9AndCreateA2({
+    cr9Id: id,
+    createdBy: user.id,
+    diagnosis: form.complaint, // initial value dari complaint CR9
+    month: now.getMonth() + 1,
+    year: now.getFullYear(),
+  })
+
+  return { cr9, a2 }
 }
 
 export async function deleteFormCr9(user: JwtPayload, id: string) {

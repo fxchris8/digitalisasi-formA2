@@ -16,7 +16,11 @@ export interface FormCr9 {
   ship: string
   complaint: string
   cr9_url: string
+  cr9_url_added_by: string | null
+  cr9_url_added_at: Date | null
   receipt_url: string
+  receipt_url_added_by: string | null
+  receipt_url_added_at: Date | null
   amount: string // NUMERIC dari pg dikembalikan sebagai string
   status: string
   submitted_at: Date | null
