@@ -118,8 +118,12 @@ async function schema(): Promise<void> {
         position      VARCHAR(100)  NOT NULL,
         ship          VARCHAR(100)  NOT NULL,
         complaint     VARCHAR(255)  NOT NULL,   -- jenis keluhan / sakit
-        cr9_url       VARCHAR(500)  NOT NULL,
-        receipt_url   VARCHAR(500)  NOT NULL,
+        cr9_url              VARCHAR(500)  NOT NULL,
+        cr9_url_added_by     UUID          REFERENCES users(id),
+        cr9_url_added_at     TIMESTAMP,
+        receipt_url          VARCHAR(500)  NOT NULL,
+        receipt_url_added_by UUID          REFERENCES users(id),
+        receipt_url_added_at TIMESTAMP,
         amount        NUMERIC(15,2) NOT NULL,
         status        VARCHAR(50)   NOT NULL DEFAULT 'draft',
         submitted_at  TIMESTAMP,
@@ -146,6 +150,7 @@ async function schema(): Promise<void> {
         current_step            approval_step,              -- NULL jika belum/sudah selesai
         submitted_at            TIMESTAMP,                  -- saat cabang submit (draft → submitted)
         submitted_to_manager_at TIMESTAMP,                  -- saat staff SPM submit (submitted → pending)
+        submitted_to_manager_by UUID            REFERENCES users(id), -- siapa yang mengajukan ke manager
         created_at              TIMESTAMP       NOT NULL DEFAULT NOW(),
         updated_at              TIMESTAMP       NOT NULL DEFAULT NOW(),
         UNIQUE (seq_number, month, year)
