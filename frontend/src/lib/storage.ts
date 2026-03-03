@@ -9,7 +9,7 @@ import apiClient from "./api-client"
  * @returns      The stored path relative to the storage root, e.g. "cr9/uuid.pdf".
  *               Pass this value directly to API payloads.
  */
-const MAX_FILE_SIZE = 3 * 1024 * 1024 // 3 MB
+export const MAX_FILE_SIZE = 3 * 1024 * 1024 // 3 MB
 
 export async function uploadFile(file: File, folder: string): Promise<string> {
   if (file.size > MAX_FILE_SIZE) {
