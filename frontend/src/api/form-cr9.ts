@@ -46,3 +46,7 @@ export async function updateFormCr9(
 export async function deleteFormCr9(id: string): Promise<void> {
   await apiClient.delete(`/api/form-cr9/${id}`)
 }
+
+export async function submitFormCr9(id: string): Promise<void> {
+  await apiClient.post(`/api/form-cr9/${id}/submit`)
+}
