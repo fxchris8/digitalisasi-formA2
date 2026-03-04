@@ -86,3 +86,16 @@ export interface FormA2ListParams {
   from_date?: string
   to_date?: string
 }
+
+export interface ApprovePayload {
+  percentage: number
+  notes?: string
+}
+
+export interface RevisionPayload {
+  notes: string
+}
+
+export interface RejectPayload {
+  notes: string
+}
