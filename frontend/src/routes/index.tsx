@@ -13,6 +13,8 @@ import DashboardPage from "@/pages/dashboard"
 import ForbiddenPage from "@/pages/forbidden"
 import FormA2Page from "@/pages/form-a2"
 import FormA2CreatePage from "@/pages/form-a2/create"
+import FormA2DetailPage from "@/pages/form-a2/detail"
+import FormA2EditPage from "@/pages/form-a2/edit"
 import FormCr9Page from "@/pages/form-cr9"
 import FormCr9CreatePage from "@/pages/form-cr9/create"
 import FormCr9DetailPage from "@/pages/form-cr9/detail"
@@ -84,12 +86,16 @@ export const router = createBrowserRouter([
           // Admin, Manager, Staff: akses & kelola Form A2
           {
             element: <RoleGuard requiredPermission="view:form-a2" />,
-            children: [{ path: ROUTES.formA2.path, element: <FormA2Page /> }],
+            children: [
+              { path: ROUTES.formA2.path, element: <FormA2Page /> },
+              { path: ROUTES.formA2Detail.path, element: <FormA2DetailPage /> },
+            ],
           },
           {
             element: <RoleGuard requiredPermission="manage:form-a2" />,
             children: [
               { path: ROUTES.formA2Create.path, element: <FormA2CreatePage /> },
+              { path: ROUTES.formA2Edit.path, element: <FormA2EditPage /> },
             ],
           },
 
