@@ -7,6 +7,7 @@ import { RoleGuard } from "@/components/guards/role-guard"
 import { MainLayout } from "@/components/layouts/main-layout"
 import { ROLES } from "@/lib/rbac"
 import ApprovalPage from "@/pages/approval"
+import ApprovalDetailPage from "@/pages/approval/detail"
 import ApprovalLogPage from "@/pages/approval-log"
 import LoginPage from "@/pages/auth/login"
 import DashboardPage from "@/pages/dashboard"
@@ -104,6 +105,10 @@ export const router = createBrowserRouter([
             element: <RoleGuard requiredPermission="view:approval" />,
             children: [
               { path: ROUTES.approval.path, element: <ApprovalPage /> },
+              {
+                path: ROUTES.approvalDetail.path,
+                element: <ApprovalDetailPage />,
+              },
             ],
           },
 
