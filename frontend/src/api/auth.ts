@@ -20,3 +20,8 @@ export async function login(
 export async function logout(): Promise<void> {
   await apiClient.post("/api/auth/logout")
 }
+
+export async function me(): Promise<User> {
+  const res = await apiClient.get<ApiResponse<User>>("/api/auth/me")
+  return res.data.data!
+}
