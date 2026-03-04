@@ -73,3 +73,7 @@ export async function resetPasswordHandler(
     next(err)
   }
 }
+
+export function getMeHandler(req: Request, res: Response): void {
+  sendSuccess(res, "Session valid", req.user)
+}
