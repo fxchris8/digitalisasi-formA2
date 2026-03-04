@@ -1,7 +1,9 @@
 import axios from "axios"
 
 const apiClient = axios.create({
-  baseURL: import.meta.env.VITE_API_URL,
+  // In production with nginx proxy, VITE_API_URL can be omitted so requests
+  // go to the same origin and nginx proxies /api/* to the backend container.
+  baseURL: (import.meta.env.VITE_API_URL as string | undefined) ?? "",
   withCredentials: true,
   headers: {
     "Content-Type": "application/json",

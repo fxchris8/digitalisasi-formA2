@@ -1,7 +1,7 @@
-import { useState } from "react"
-import { useNavigate } from "react-router"
+import { useEffect, useState } from "react"
+import { useNavigate, useParams } from "react-router"
 import { toast } from "sonner"
-import { createFormCr9 } from "@/api/form-cr9"
+import { getFormCr9, updateFormCr9 } from "@/api/form-cr9"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -12,9 +12,9 @@ import {
 } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { uploadFile } from "@/lib/storage"
+import { getStorageUrl, uploadFile } from "@/lib/storage"
 import { ROUTES } from "@/routes/config"
-import type { CreateFormCr9Payload } from "@/types/form-cr9"
+import type { FormCr9, UpdateFormCr9Payload } from "@/types/form-cr9"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -25,28 +25,14 @@ type FormState = {
   position: string
   ship: string
   complaint: string
-  cr9_url: string
-  receipt_url: string
+  cr9_url: string // stored path, e.g. "cr9/uuid.pdf"
+  receipt_url: string // stored path, e.g. "receipt/uuid.pdf"
   amount: string
 }
 
 type FormErrors = Partial<Record<keyof FormState, string>>
 
 type UploadStatus = "idle" | "uploading" | "done" | "error"
-
-const EMPTY_FORM: FormState = {
-  seafarer_code: "",
-  seaman_code: "",
-  seaman_name: "",
-  position: "",
-  ship: "",
-  complaint: "",
-  cr9_url: "",
-  receipt_url: "",
-  amount: "",
-}
-
-// ─── Validation ───────────────────────────────────────────────────────────────
 
 function validate(form: FormState): FormErrors {
   const errors: FormErrors = {}
@@ -67,8 +53,6 @@ function validate(form: FormState): FormErrors {
   }
   return errors
 }
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function Field({
   id,
@@ -94,7 +78,9 @@ function UploadHint({ status }: { status: UploadStatus }) {
   if (status === "uploading")
     return <p className="text-xs text-muted-foreground">Mengupload file...</p>
   if (status === "done")
-    return <p className="text-xs text-green-600">File berhasil diupload</p>
+    return (
+      <p className="text-xs text-green-600">File baru berhasil diupload ✓</p>
+    )
   if (status === "error")
     return (
       <p className="text-xs text-red-500">Upload gagal — pilih file lagi</p>
@@ -102,19 +88,56 @@ function UploadHint({ status }: { status: UploadStatus }) {
   return null
 }
 
+function toFormState(form: FormCr9): FormState {
+  return {
+    seafarer_code: form.seafarer_code,
+    seaman_code: form.seaman_code,
+    seaman_name: form.seaman_name,
+    position: form.position,
+    ship: form.ship,
+    complaint: form.complaint,
+    cr9_url: form.cr9_url,
+    receipt_url: form.receipt_url,
+    amount: form.amount,
+  }
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
-export default function FormCr9CreatePage() {
+export default function FormCr9EditPage() {
+  const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
-  const [form, setForm] = useState<FormState>(EMPTY_FORM)
+
+  const [form, setForm] = useState<FormState | null>(null)
   const [errors, setErrors] = useState<FormErrors>({})
+  const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
+  const [formNumber, setFormNumber] = useState("")
 
   const [cr9Status, setCr9Status] = useState<UploadStatus>("idle")
   const [receiptStatus, setReceiptStatus] = useState<UploadStatus>("idle")
 
+  useEffect(() => {
+    if (!id) return
+    getFormCr9(id)
+      .then((data) => {
+        if (data.status === "approved") {
+          toast.error("Form yang sudah disetujui tidak dapat diedit")
+          navigate(`/form-cr9/${id}`)
+          return
+        }
+        setForm(toFormState(data))
+        setFormNumber(data.form_number)
+      })
+      .catch(() => {
+        toast.error("Gagal memuat Form CR9")
+        navigate(ROUTES.formCr9.path)
+      })
+      .finally(() => setLoading(false))
+  }, [id, navigate])
+
   function handleChange(field: keyof FormState, value: string) {
-    setForm((prev) => ({ ...prev, [field]: value }))
+    setForm((prev) => (prev ? { ...prev, [field]: value } : null))
     if (errors[field]) setErrors((prev) => ({ ...prev, [field]: undefined }))
   }
 
@@ -142,6 +165,8 @@ export default function FormCr9CreatePage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    if (!form || !id) return
+
     const errs = validate(form)
     if (Object.keys(errs).length > 0) {
       setErrors(errs)
@@ -150,7 +175,7 @@ export default function FormCr9CreatePage() {
 
     setSubmitting(true)
     try {
-      const payload: CreateFormCr9Payload = {
+      const payload: UpdateFormCr9Payload = {
         seafarer_code: form.seafarer_code.trim(),
         seaman_code: form.seaman_code.trim(),
         seaman_name: form.seaman_name.trim(),
@@ -161,15 +186,27 @@ export default function FormCr9CreatePage() {
         receipt_url: form.receipt_url,
         amount: Number(form.amount),
       }
-      await createFormCr9(payload)
-      toast.success("Form CR9 berhasil dibuat")
-      navigate(ROUTES.formCr9.path)
+      await updateFormCr9(id, payload)
+      toast.success("Form CR9 berhasil diupdate")
+      navigate(`/form-cr9/${id}`)
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Gagal membuat Form CR9")
+      toast.error(
+        err instanceof Error ? err.message : "Gagal mengupdate Form CR9",
+      )
     } finally {
       setSubmitting(false)
     }
   }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20 text-sm text-muted-foreground">
+        Memuat data...
+      </div>
+    )
+  }
+
+  if (!form) return null
 
   return (
     <div className="space-y-6">
@@ -177,13 +214,9 @@ export default function FormCr9CreatePage() {
       <div className="flex items-center gap-3">
         <div>
           <h1 className="text-4xl font-semibold text-gray-900">
-            Buat Form CR9
+            Edit Form CR9
           </h1>
-          <p className="mt-0.5 text-sm text-gray-500">
-            Pengajuan Laporan Form CR9 Crew Kapal.
-            <br />
-            Pastikan Semua Data Sudah Benar Sebelum Menyimpan.
-          </p>
+          <p className="mt-0.5 text-sm font-mono text-gray-500">{formNumber}</p>
         </div>
       </div>
 
@@ -193,8 +226,8 @@ export default function FormCr9CreatePage() {
           <CardHeader>
             <CardTitle>Informasi Form CR9</CardTitle>
             <CardDescription>
-              Isi form berikut dengan data yang benar dan lengkap. Setelah
-              disimpan, form akan masuk ke tahap review oleh staff SPM.
+              Perbarui data Form CR9 sesuai kebutuhan. Dokumen yang sudah
+              diupload tetap berlaku jika tidak diganti.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -206,7 +239,6 @@ export default function FormCr9CreatePage() {
               >
                 <Input
                   id="seafarer_code"
-                  placeholder="Cth: SF-20240118"
                   value={form.seafarer_code}
                   onChange={(e) =>
                     handleChange("seafarer_code", e.target.value)
@@ -221,7 +253,6 @@ export default function FormCr9CreatePage() {
               >
                 <Input
                   id="seaman_code"
-                  placeholder="Cth: ABK-20240118"
                   value={form.seaman_code}
                   onChange={(e) => handleChange("seaman_code", e.target.value)}
                 />
@@ -234,7 +265,6 @@ export default function FormCr9CreatePage() {
               >
                 <Input
                   id="seaman_name"
-                  placeholder="Nama lengkap seaman"
                   value={form.seaman_name}
                   onChange={(e) => handleChange("seaman_name", e.target.value)}
                 />
@@ -243,7 +273,6 @@ export default function FormCr9CreatePage() {
               <Field id="position" label="Jabatan" error={errors.position}>
                 <Input
                   id="position"
-                  placeholder="Cth: Mualim I, Masinis II"
                   value={form.position}
                   onChange={(e) => handleChange("position", e.target.value)}
                 />
@@ -252,7 +281,6 @@ export default function FormCr9CreatePage() {
               <Field id="ship" label="Nama Kapal" error={errors.ship}>
                 <Input
                   id="ship"
-                  placeholder="Cth: KM Nusantara Jaya"
                   value={form.ship}
                   onChange={(e) => handleChange("ship", e.target.value)}
                 />
@@ -265,7 +293,6 @@ export default function FormCr9CreatePage() {
               >
                 <Input
                   id="complaint"
-                  placeholder="Cth: Demam & Batuk, Cedera Tangan"
                   value={form.complaint}
                   onChange={(e) => handleChange("complaint", e.target.value)}
                 />
@@ -276,6 +303,16 @@ export default function FormCr9CreatePage() {
                 label="Dokumen CR9 (PDF)"
                 error={errors.cr9_url}
               >
+                {form.cr9_url && cr9Status === "idle" && (
+                  <a
+                    href={getStorageUrl(form.cr9_url)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="block text-xs text-blue-600 hover:underline mb-1"
+                  >
+                    Lihat dokumen saat ini
+                  </a>
+                )}
                 <input
                   id="cr9_file"
                   type="file"
@@ -286,6 +323,11 @@ export default function FormCr9CreatePage() {
                     handleFileChange(e, "cr9", "cr9_url", setCr9Status)
                   }
                 />
+                {cr9Status === "idle" && form.cr9_url && (
+                  <p className="text-xs text-muted-foreground">
+                    Pilih file baru untuk mengganti dokumen
+                  </p>
+                )}
                 <UploadHint status={cr9Status} />
               </Field>
 
@@ -294,6 +336,16 @@ export default function FormCr9CreatePage() {
                 label="Kwitansi (PDF)"
                 error={errors.receipt_url}
               >
+                {form.receipt_url && receiptStatus === "idle" && (
+                  <a
+                    href={getStorageUrl(form.receipt_url)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="block text-xs text-blue-600 hover:underline mb-1"
+                  >
+                    Lihat kwitansi saat ini
+                  </a>
+                )}
                 <input
                   id="receipt_file"
                   type="file"
@@ -309,6 +361,11 @@ export default function FormCr9CreatePage() {
                     )
                   }
                 />
+                {receiptStatus === "idle" && form.receipt_url && (
+                  <p className="text-xs text-muted-foreground">
+                    Pilih file baru untuk mengganti kwitansi
+                  </p>
+                )}
                 <UploadHint status={receiptStatus} />
               </Field>
 
@@ -335,7 +392,7 @@ export default function FormCr9CreatePage() {
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => navigate(ROUTES.formCr9.path)}
+                onClick={() => navigate(`/form-cr9/${id}`)}
                 disabled={submitting}
               >
                 Batal
@@ -349,7 +406,7 @@ export default function FormCr9CreatePage() {
                 }
                 className="bg-green-600 hover:bg-green-700 text-white"
               >
-                {submitting ? "Menyimpan..." : "Simpan Form CR9"}
+                {submitting ? "Menyimpan..." : "Simpan Perubahan"}
               </Button>
             </div>
           </CardContent>
