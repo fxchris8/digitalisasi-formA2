@@ -1,8 +1,8 @@
-import { Eye, Pencil, Trash2 } from "lucide-react"
+import { AlertTriangle } from "lucide-react"
 import { useCallback, useEffect, useState } from "react"
 import { Link, useNavigate } from "react-router"
 import { toast } from "sonner"
-import { deleteFormCr9, listFormCr9 } from "@/api/form-cr9"
+import { deleteFormCr9, listFormCr9, submitFormCr9 } from "@/api/form-cr9"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import {
@@ -33,6 +33,7 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { useAuth } from "@/contexts/auth.context"
+import { formatDate } from "@/lib/format"
 import { ROLES } from "@/lib/rbac"
 import { ROUTES } from "@/routes/config"
 import type { FormCr9, FormCr9Status } from "@/types/form-cr9"
@@ -118,6 +119,8 @@ export default function FormCr9Page() {
 
   const [deleteTarget, setDeleteTarget] = useState<FormCr9 | null>(null)
   const [deleting, setDeleting] = useState(false)
+  const [submitTarget, setSubmitTarget] = useState<FormCr9 | null>(null)
+  const [submitting, setSubmitting] = useState(false)
 
   const canCreateOrRevise =
     user?.role === ROLES.ADMIN ||
@@ -168,6 +171,23 @@ export default function FormCr9Page() {
     if (page >= 1 && page <= totalPages) setCurrentPage(page)
   }
 
+  async function handleSubmit() {
+    if (!submitTarget) return
+    setSubmitting(true)
+    try {
+      await submitFormCr9(submitTarget.id)
+      setSubmitTarget(null)
+      toast.success("Form CR9 berhasil diajukan, Form A2 telah dibuat")
+      fetchForms()
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Gagal mengajukan Form CR9",
+      )
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
   async function handleDelete() {
     if (!deleteTarget) return
     setDeleting(true)
@@ -195,11 +215,11 @@ export default function FormCr9Page() {
         <div>
           <h1 className="text-4xl font-semibold text-gray-900">Form CR9</h1>
           <p className="mt-1 text-sm text-gray-500">
-            Informasi Pengajuan dan Form CR9 Crew Kapal.
+            Informasi Pengajuan Form CR9 Crew Kapal dari Cabang.
           </p>
         </div>
         {canCreateOrRevise && (
-          <Button asChild className="bg-blue-500 hover:bg-blue-600 text-white">
+          <Button asChild className="bg-red-600 hover:bg-red-700 text-white">
             <Link to={ROUTES.formCr9Create.path}>Buat Baru</Link>
           </Button>
         )}
@@ -297,11 +317,11 @@ export default function FormCr9Page() {
       </Card>
 
       {/* Tabel */}
-      <div className="rounded-lg border bg-white overflow-hidden">
+      <div className="rounded-lg border bg-white overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow className="bg-muted/40">
-              <TableHead className="w-10">No</TableHead>
+              <TableHead className="w-10 text-center">No</TableHead>
               <TableHead>Nomor Surat</TableHead>
               <TableHead>Seaman Name</TableHead>
               <TableHead>Seaman Code</TableHead>
@@ -315,7 +335,7 @@ export default function FormCr9Page() {
             {loading ? (
               <TableRow>
                 <TableCell
-                  colSpan={9}
+                  colSpan={8}
                   className="py-10 text-center text-sm text-muted-foreground"
                 >
                   Memuat data...
@@ -324,7 +344,7 @@ export default function FormCr9Page() {
             ) : forms.length === 0 ? (
               <TableRow>
                 <TableCell
-                  colSpan={9}
+                  colSpan={8}
                   className="py-10 text-center text-sm text-muted-foreground"
                 >
                   Tidak ada data yang sesuai dengan filter.
@@ -349,51 +369,52 @@ export default function FormCr9Page() {
                     {form.ship}
                   </TableCell>
                   <TableCell className="whitespace-nowrap text-muted-foreground">
-                    {new Date(form.created_at).toLocaleDateString("id-ID", {
-                      day: "2-digit",
-                      month: "short",
-                      year: "numeric",
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}
+                    {formatDate(form.created_at)}
                   </TableCell>
                   <TableCell>
                     <StatusBadge status={form.status} />
                   </TableCell>
                   <TableCell>
-                    <div className="flex items-center justify-center gap-1">
+                    <div className="flex items-center justify-center gap-2">
                       <Button
-                        variant="ghost"
-                        size="icon-sm"
+                        size="xs"
                         title="Lihat Detail"
-                        className="text-muted-foreground hover:text-blue-600"
+                        className="text-white text-[10px] bg-blue-500 hover:bg-blue-600"
                         onClick={() => navigate(`/form-cr9/${form.id}`)}
                       >
-                        <Eye size={15} />
+                        DETAIL
                       </Button>
 
-                      {canCreateOrRevise && (
+                      {canCreateOrRevise && form.status === "draft" && (
                         <Button
-                          variant="ghost"
-                          size="icon-sm"
+                          size="xs"
                           title="Edit"
-                          className="text-muted-foreground hover:text-amber-600"
-                          disabled={form.status === "approved"}
+                          className="text-white text-[10px] bg-amber-600 hover:bg-amber-700"
                           onClick={() => navigate(`/form-cr9/${form.id}/edit`)}
                         >
-                          <Pencil size={15} />
+                          EDIT
+                        </Button>
+                      )}
+
+                      {canCreateOrRevise && form.status === "draft" && (
+                        <Button
+                          size="xs"
+                          title="Ajukan"
+                          className="text-white text-[10px] bg-green-600 hover:bg-green-700"
+                          onClick={() => setSubmitTarget(form)}
+                        >
+                          AJUKAN
                         </Button>
                       )}
 
                       {canDelete && (
                         <Button
-                          variant="ghost"
-                          size="icon-sm"
+                          size="xs"
                           title="Hapus"
-                          className="text-muted-foreground hover:text-red-600"
+                          className="text-white text-[10px] bg-red-600 hover:bg-red-700"
                           onClick={() => setDeleteTarget(form)}
                         >
-                          <Trash2 size={15} />
+                          HAPUS
                         </Button>
                       )}
                     </div>
@@ -472,6 +493,41 @@ export default function FormCr9Page() {
           )}
         </div>
       </div>
+
+      {/* Dialog Konfirmasi Ajukan */}
+      <Dialog
+        open={submitTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) setSubmitTarget(null)
+        }}
+      >
+        <DialogContent className="sm:max-w-lg text-center">
+          <DialogHeader className="items-center">
+            <AlertTriangle className="h-14 w-14 text-green-600 mb-2" />
+            <DialogTitle>Ajukan Form CR9?</DialogTitle>
+            <DialogDescription>
+              Apakah Anda yakin ingin mengajukan form ini ke SPM? Form tidak
+              dapat diedit setelah diajukan.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="justify-center sm:justify-center gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setSubmitTarget(null)}
+              disabled={submitting}
+            >
+              Batal
+            </Button>
+            <Button
+              onClick={handleSubmit}
+              disabled={submitting}
+              className="bg-green-600 hover:bg-green-700 text-white"
+            >
+              {submitting ? "Mengajukan..." : "Ya, Ajukan"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Dialog Konfirmasi Hapus */}
       <Dialog

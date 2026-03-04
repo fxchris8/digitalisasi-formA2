@@ -1,18 +1,37 @@
-import { Pencil } from "lucide-react"
+import { AlertTriangle } from "lucide-react"
 import { useEffect, useState } from "react"
 import { useNavigate, useParams } from "react-router"
 import { toast } from "sonner"
-import { getFormCr9 } from "@/api/form-cr9"
+import { getFormA2ByCr9Id } from "@/api/form-a2"
+import { getFormCr9, submitFormCr9 } from "@/api/form-cr9"
+import { Cr9Timeline } from "@/components/form-cr9/cr9-timeline"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import { FileCard } from "@/components/ui/file-card"
+import { InfoRow } from "@/components/ui/info-row"
 import { useAuth } from "@/contexts/auth.context"
-import { formatRupiah } from "@/lib/format"
+import { formatDateTime, formatRupiah } from "@/lib/format"
 import { ROLES } from "@/lib/rbac"
 import { ROUTES } from "@/routes/config"
+import type { FormA2WithDetails } from "@/types/form-a2"
 import type { FormCr9, FormCr9Status } from "@/types/form-cr9"
 
+// Status badge
 const STATUS_CONFIG: Record<
   FormCr9Status,
   { label: string; className: string }
@@ -23,6 +42,7 @@ const STATUS_CONFIG: Record<
   rejected: { label: "Ditolak", className: "bg-red-100 text-red-700" },
 }
 
+// Status badge component
 function StatusBadge({ status }: { status: FormCr9Status }) {
   const cfg = STATUS_CONFIG[status] ?? {
     label: status,
@@ -31,35 +51,53 @@ function StatusBadge({ status }: { status: FormCr9Status }) {
   return <Badge className={cfg.className}>{cfg.label}</Badge>
 }
 
-function InfoRow({ label, value }: { label: string; value: React.ReactNode }) {
-  return (
-    <div className="flex flex-col sm:flex-row sm:gap-4 py-2.5 border-b last:border-0">
-      <dt className="text-sm text-muted-foreground w-44 shrink-0">{label}</dt>
-      <dd className="text-sm font-medium text-gray-900 mt-0.5 sm:mt-0">
-        {value}
-      </dd>
-    </div>
-  )
-}
-
+// Page component
 export default function FormCr9DetailPage() {
   const { id } = useParams<{ id: string }>()
   const { user } = useAuth()
   const navigate = useNavigate()
 
   const [form, setForm] = useState<FormCr9 | null>(null)
+  const [a2, setA2] = useState<FormA2WithDetails | null>(null)
   const [loading, setLoading] = useState(true)
+  const [submitting, setSubmitting] = useState(false)
+  const [confirmOpen, setConfirmOpen] = useState(false)
 
-  const canEdit =
-    (user?.role === ROLES.ADMIN ||
-      (user?.role === ROLES.STAFF &&
-        (user?.department === "cabang" || user?.department === "spm"))) &&
-    form?.status !== "approved"
+  const canManage =
+    user?.role === ROLES.ADMIN ||
+    (user?.role === ROLES.STAFF &&
+      (user?.department === "cabang" || user?.department === "spm"))
+
+  const canEdit = canManage && form?.status === "draft"
+  const canSubmit = canManage && form?.status === "draft"
+
+  async function handleSubmit() {
+    if (!id) return
+    setSubmitting(true)
+    try {
+      await submitFormCr9(id)
+      setConfirmOpen(false)
+      toast.success("Form CR9 berhasil diajukan ke SPM")
+      const [cr9, formA2] = await Promise.all([
+        getFormCr9(id),
+        getFormA2ByCr9Id(id).catch(() => null),
+      ])
+      setForm(cr9)
+      setA2(formA2)
+    } catch {
+      toast.error("Gagal mengajukan Form CR9")
+    } finally {
+      setSubmitting(false)
+    }
+  }
 
   useEffect(() => {
     if (!id) return
-    getFormCr9(id)
-      .then(setForm)
+    Promise.all([getFormCr9(id), getFormA2ByCr9Id(id).catch(() => null)])
+      .then(([cr9, formA2]) => {
+        setForm(cr9)
+        setA2(formA2)
+      })
       .catch(() => {
         toast.error("Gagal memuat Form CR9")
         navigate(ROUTES.formCr9.path)
@@ -81,28 +119,42 @@ export default function FormCr9DetailPage() {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div>
-            <h1 className="text-4xl font-semibold text-gray-900">
-              Detail Form CR9
-            </h1>
-            <p className="mt-0.5 text-sm font-mono text-gray-500">
-              {form.form_number}
-            </p>
-          </div>
+        <div>
+          <h1 className="text-4xl font-semibold text-gray-900">
+            Detail Form CR9
+          </h1>
+          <p className="mt-0.5 text-sm font-mono text-gray-500">
+            {form.form_number}
+          </p>
         </div>
-        {canEdit && (
-          <Button
-            variant="outline"
-            onClick={() => navigate(`/form-cr9/${form.id}/edit`)}
-          >
-            <Pencil size={15} className="mr-2" />
-            Edit
-          </Button>
+        {(canEdit || canSubmit) && (
+          <div className="flex items-center gap-2">
+            {canEdit && (
+              <Button
+                onClick={() => navigate(`/form-cr9/${form.id}/edit`)}
+                className="bg-amber-600 hover:bg-amber-700 text-white"
+              >
+                Edit
+              </Button>
+            )}
+            {canSubmit && (
+              <Button
+                onClick={() => setConfirmOpen(true)}
+                disabled={submitting}
+                className="bg-green-600 hover:bg-green-700 text-white"
+              >
+                Ajukan ke SPM
+              </Button>
+            )}
+          </div>
         )}
       </div>
 
       <Card>
+        <CardHeader>
+          <CardTitle>Informasi CR9</CardTitle>
+          <CardDescription>Detail informasi form CR9</CardDescription>
+        </CardHeader>
         <CardContent>
           <dl>
             <InfoRow label="Nomor Surat" value={form.form_number} />
@@ -114,22 +166,12 @@ export default function FormCr9DetailPage() {
             <InfoRow label="Dibuat Oleh" value={form.creator_name} />
             <InfoRow
               label="Tanggal Dibuat"
-              value={new Date(form.created_at).toLocaleDateString("id-ID", {
-                day: "2-digit",
-                month: "long",
-                year: "numeric",
-                hour: "2-digit",
-                minute: "2-digit",
-              })}
+              value={formatDateTime(form.created_at)}
             />
             {form.submitted_at && (
               <InfoRow
                 label="Tanggal Diajukan"
-                value={new Date(form.submitted_at).toLocaleDateString("id-ID", {
-                  day: "2-digit",
-                  month: "long",
-                  year: "numeric",
-                })}
+                value={formatDateTime(form.submitted_at)}
               />
             )}
           </dl>
@@ -137,6 +179,10 @@ export default function FormCr9DetailPage() {
       </Card>
 
       <Card>
+        <CardHeader>
+          <CardTitle>Detail Pemohon</CardTitle>
+          <CardDescription>Detail pemohon/crew dari form CR9</CardDescription>
+        </CardHeader>
         <CardContent>
           <dl>
             <InfoRow label="Seafarer Code" value={form.seafarer_code} />
@@ -151,15 +197,73 @@ export default function FormCr9DetailPage() {
       </Card>
 
       <Card>
-        <CardContent className="space-y-4">
-          <div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <CardHeader>
+          <CardTitle>Dokumen Pendukung</CardTitle>
+          <CardDescription>Dokumen pendukung untuk form CR9</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="space-y-1">
               <FileCard label="Dokumen CR9" storedPath={form.cr9_url} />
+              {form.cr9_url_added_at && (
+                <p className="text-xs text-muted-foreground px-1">
+                  Diunggah pada {formatDateTime(form.cr9_url_added_at)}
+                </p>
+              )}
+            </div>
+            <div className="space-y-1">
               <FileCard label="Kwitansi" storedPath={form.receipt_url} />
+              {form.receipt_url_added_at && (
+                <p className="text-xs text-muted-foreground px-1">
+                  Diunggah pada {formatDateTime(form.receipt_url_added_at)}
+                </p>
+              )}
             </div>
           </div>
         </CardContent>
       </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Timeline Pengajuan</CardTitle>
+          <CardDescription>
+            Riwayat alur pengajuan dari CR9 hingga persetujuan akhir
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Cr9Timeline form={form} a2={a2} />
+        </CardContent>
+      </Card>
+
+      {/* Confirm submit dialog */}
+      <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <DialogContent className="sm:max-w-lg text-center">
+          <DialogHeader className="items-center">
+            <AlertTriangle className="h-14 w-14 text-green-600 mb-2" />
+            <DialogTitle>Ajukan Form CR9?</DialogTitle>
+            <DialogDescription>
+              Apakah Anda yakin ingin mengajukan form ini ke SPM? Form tidak
+              dapat diedit setelah diajukan.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="justify-center sm:justify-center gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setConfirmOpen(false)}
+              disabled={submitting}
+            >
+              Batal
+            </Button>
+            <Button
+              onClick={handleSubmit}
+              disabled={submitting}
+              className="bg-green-600 hover:bg-green-700 text-white"
+            >
+              {submitting ? "Mengajukan..." : "Ya, Ajukan"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
