@@ -99,14 +99,12 @@ function TimelineItem({
           </p>
         )}
 
-        {!isPending && entry.notes && (
-          <p className="mt-1.5 rounded border bg-gray-50 px-2.5 py-1.5 text-xs text-gray-700">
-            {entry.notes}
-          </p>
+        {!isPending && entry.extra && (
+          <p className="mt-0.5 text-xs text-muted-foreground">{entry.extra}</p>
         )}
 
-        {!isPending && entry.extra && (
-          <p className="mt-1 text-xs text-gray-500">{entry.extra}</p>
+        {!isPending && entry.notes && (
+          <p className="mt-0.5 text-xs text-muted-foreground">{entry.notes}</p>
         )}
       </div>
     </div>

@@ -1,5 +1,6 @@
 import { Router } from "express"
 import {
+  getMeHandler,
   loginHandler,
   logoutHandler,
   registerHandler,
@@ -12,6 +13,7 @@ const router: Router = Router()
 router.post("/register", registerHandler)
 router.post("/login", loginHandler)
 router.post("/logout", authenticate, logoutHandler)
+router.get("/me", authenticate, getMeHandler)
 router.post(
   "/reset-password",
   authenticate,

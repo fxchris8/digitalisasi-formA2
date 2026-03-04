@@ -29,6 +29,7 @@ function resolveBranchOffice(user: JwtPayload): string {
 function getBranchFilter(user: JwtPayload): string | null {
   if (user.role === "admin") return null
   if (user.department === "spm" || user.department === "finance") return null
+  if (user.role === "manager") return null
   // cabang atau role lain → filter ke branch_office sendiri
   return user.branch_office ?? "NONE"
 }

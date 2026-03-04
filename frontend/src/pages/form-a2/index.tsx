@@ -277,6 +277,7 @@ export default function FormA2Page() {
               <TableHead>Nomor Surat A2</TableHead>
               <TableHead>Nomor Surat CR9</TableHead>
               <TableHead>Seaman Name</TableHead>
+              <TableHead>Seaman Code</TableHead>
               <TableHead>Kapal</TableHead>
               <TableHead>Cabang</TableHead>
               <TableHead>Tanggal Pengajuan</TableHead>
@@ -317,6 +318,9 @@ export default function FormA2Page() {
                   </TableCell>
                   <TableCell className="whitespace-nowrap text-muted-foreground">
                     {form.seaman_name}
+                  </TableCell>
+                  <TableCell className="whitespace-nowrap text-muted-foreground">
+                    {form.seaman_code}
                   </TableCell>
                   <TableCell className="whitespace-nowrap text-muted-foreground">
                     {form.ship}

@@ -1,5 +1,6 @@
 import pool from "@/config/database"
 import type {
+  ApprovalStep,
   FormA2,
   FormA2ApprovalLog,
   FormA2Detail,
@@ -105,11 +106,17 @@ export async function findAll(params: {
   toDate: string | undefined
   limit: number
   offset: number
+  step?: ApprovalStep
 }): Promise<{ rows: FormA2WithCr9[]; total: number }> {
   const conditions: string[] = []
   const values: unknown[] = []
   let idx = 1
 
+  if (params.step) {
+    conditions.push(`a.status = 'pending'`)
+    conditions.push(`a.current_step = $${idx++}`)
+    values.push(params.step)
+  }
   if (params.branchFilter !== null) {
     conditions.push(`c.branch_office = $${idx++}`)
     values.push(params.branchFilter)
@@ -322,4 +329,114 @@ export async function submitToManager(
     [id, userId],
   )
   return result.rows[0] ?? null
+}
+
+// ── Approval actions ───────────────────────────────────────────────────────────
+
+const NEXT_STEP: Record<ApprovalStep, string> = {
+  spm: `current_step = 'nautica'`,
+  nautica: `current_step = 'finance'`,
+  finance: `status = 'approved', current_step = NULL`,
+}
+
+export async function approve(
+  id: string,
+  step: ApprovalStep,
+  userId: string,
+  percentage: number,
+  notes?: string,
+): Promise<FormA2 | null> {
+  const client = await pool.connect()
+  try {
+    await client.query("BEGIN")
+
+    await client.query(
+      `INSERT INTO form_a2_approval_log (form_a2_id, step, status, percentage, notes, actioned_by)
+       VALUES ($1, $2, 'approved', $3, $4, $5)`,
+      [id, step, percentage, notes ?? null, userId],
+    )
+
+    const result = await client.query<FormA2>(
+      `UPDATE form_a2 SET ${NEXT_STEP[step]}, updated_at = NOW() WHERE id = $1 RETURNING *`,
+      [id],
+    )
+
+    await client.query("COMMIT")
+    return result.rows[0] ?? null
+  } catch (err) {
+    await client.query("ROLLBACK")
+    throw err
+  } finally {
+    client.release()
+  }
+}
+
+export async function requestRevision(
+  id: string,
+  step: ApprovalStep,
+  userId: string,
+  notes: string,
+): Promise<FormA2 | null> {
+  const client = await pool.connect()
+  try {
+    await client.query("BEGIN")
+
+    await client.query(
+      `INSERT INTO form_a2_approval_log (form_a2_id, step, status, notes, actioned_by)
+       VALUES ($1, $2, 'revision', $3, $4)`,
+      [id, step, notes, userId],
+    )
+
+    await client.query(
+      `INSERT INTO form_a2_revision (form_a2_id, step, requested_by, notes)
+       VALUES ($1, $2, $3, $4)`,
+      [id, step, userId, notes],
+    )
+
+    const result = await client.query<FormA2>(
+      `UPDATE form_a2 SET status = 'revision', current_step = NULL, updated_at = NOW()
+       WHERE id = $1 RETURNING *`,
+      [id],
+    )
+
+    await client.query("COMMIT")
+    return result.rows[0] ?? null
+  } catch (err) {
+    await client.query("ROLLBACK")
+    throw err
+  } finally {
+    client.release()
+  }
+}
+
+export async function reject(
+  id: string,
+  step: ApprovalStep,
+  userId: string,
+  notes: string,
+): Promise<FormA2 | null> {
+  const client = await pool.connect()
+  try {
+    await client.query("BEGIN")
+
+    await client.query(
+      `INSERT INTO form_a2_approval_log (form_a2_id, step, status, notes, actioned_by)
+       VALUES ($1, $2, 'rejected', $3, $4)`,
+      [id, step, notes, userId],
+    )
+
+    const result = await client.query<FormA2>(
+      `UPDATE form_a2 SET status = 'rejected', current_step = NULL, updated_at = NOW()
+       WHERE id = $1 RETURNING *`,
+      [id],
+    )
+
+    await client.query("COMMIT")
+    return result.rows[0] ?? null
+  } catch (err) {
+    await client.query("ROLLBACK")
+    throw err
+  } finally {
+    client.release()
+  }
 }

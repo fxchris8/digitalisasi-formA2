@@ -14,6 +14,7 @@ export const ROUTES = {
   formA2Detail: { path: "/form-a2/:id", label: "Detail Form A2" },
   formA2Edit: { path: "/form-a2/:id/edit", label: "Edit Form A2" },
   approval: { path: "/approval", label: "Approval" },
+  approvalDetail: { path: "/approval/:id", label: "Cek Pengajuan" },
   approvalLog: { path: "/approval-log", label: "Approval Log" },
   forbidden: { path: "/403", label: "Akses Ditolak" },
 } as const

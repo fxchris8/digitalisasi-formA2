@@ -68,7 +68,12 @@ const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
  * terlepas dari role.
  */
 const DEPARTMENT_PERMISSIONS: Record<string, Permission[]> = {
-  finance: ["view:approval", "manage:approval"],
+  finance: [
+    "view:form-cr9",
+    "view:form-a2",
+    "view:approval",
+    "manage:approval",
+  ],
 }
 
 /**
@@ -101,4 +106,18 @@ export function hasAccess(
  */
 export function hasRole(userRole: string, allowedRoles: Role[]): boolean {
   return allowedRoles.includes(userRole as Role)
+}
+
+/**
+ * Kembalikan step approval yang menjadi tanggung jawab user ini.
+ * null berarti user bukan approver.
+ */
+export function getManagerStep(user: {
+  role: string
+  department: string | null
+}): "spm" | "nautica" | "finance" | null {
+  if (user.role === "manager" && user.department === "spm") return "spm"
+  if (user.role === "manager" && user.department === "nautica") return "nautica"
+  if (user.department === "finance") return "finance"
+  return null
 }
