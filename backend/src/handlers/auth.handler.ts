@@ -1,4 +1,5 @@
 import type { NextFunction, Request, Response } from "express"
+import * as userRepo from "@/repositories/user.repository"
 import * as authService from "@/services/auth.service"
 import { sendSuccess } from "@/utils/response"
 import {
@@ -76,4 +77,17 @@ export async function resetPasswordHandler(
 
 export function getMeHandler(req: Request, res: Response): void {
   sendSuccess(res, "Session valid", req.user)
+}
+
+export async function listBranchOfficesHandler(
+  _req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const offices = await userRepo.findDistinctBranchOffices()
+    sendSuccess(res, "Branch offices fetched", offices)
+  } catch (err) {
+    next(err)
+  }
 }
