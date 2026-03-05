@@ -1,5 +1,6 @@
 import pool from "@/config/database"
 import type { FormCr9, FormCr9WithCreator } from "@/models/form-cr9.model"
+import { AppError } from "@/utils/app-error"
 import type {
   CreateFormCr9Dto,
   UpdateFormCr9Dto,
@@ -25,7 +26,9 @@ export async function nextSeqNumber(
     `,
     [branchOffice, year],
   )
-  return result.rows[0]!.last_seq
+  const seqRow = result.rows[0]
+  if (!seqRow) throw new AppError("Failed to generate sequence number", 500)
+  return seqRow.last_seq
 }
 
 // ── CRUD ──────────────────────────────────────────────────────────────────────
@@ -81,7 +84,7 @@ export async function findAll(params: {
     `SELECT COUNT(*) AS count FROM form_cr9 f ${where}`,
     values,
   )
-  const total = Number(countResult.rows[0]!.count)
+  const total = Number((countResult.rows[0] as { count: string }).count)
 
   const dataResult = await pool.query<FormCr9WithCreator>(
     /* sql */ `
@@ -155,7 +158,9 @@ export async function create(
       dto.amount,
     ],
   )
-  return result.rows[0]!
+  const row = result.rows[0]
+  if (!row) throw new AppError("Failed to create Form CR9", 500)
+  return row
 }
 
 export async function update(
