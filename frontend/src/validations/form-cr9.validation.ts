@@ -16,6 +16,7 @@ export const formCr9Schema = z.object({
       const n = Number(v)
       return !Number.isNaN(n) && n > 0
     }, "Jumlah biaya harus lebih dari 0"),
+  branch_office: z.string().optional(),
 })
 
 export type FormCr9State = z.infer<typeof formCr9Schema>

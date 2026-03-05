@@ -24,3 +24,10 @@ export async function me(): Promise<User> {
   const res = await apiClient.get<ApiResponse<User>>("/api/auth/me")
   return unwrap(res.data)
 }
+
+export async function listBranchOffices(): Promise<string[]> {
+  const res = await apiClient.get<ApiResponse<string[]>>(
+    "/api/auth/branch-offices",
+  )
+  return unwrap(res.data)
+}

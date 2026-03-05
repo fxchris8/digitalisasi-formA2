@@ -1,6 +1,7 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useNavigate } from "react-router"
 import { toast } from "sonner"
+import { listBranchOffices } from "@/api/auth"
 import { createFormCr9 } from "@/api/form-cr9"
 import { Button } from "@/components/ui/button"
 import {
@@ -12,6 +13,16 @@ import {
 } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import { useAuth } from "@/contexts/auth.context"
 import { uploadFile } from "@/lib/storage"
 import { ROUTES } from "@/routes/config"
 import type { CreateFormCr9Payload } from "@/types/form-cr9"
@@ -29,6 +40,7 @@ type FormState = {
   cr9_url: string
   receipt_url: string
   amount: string
+  branch_office: string
 }
 
 type FormErrors = Partial<Record<keyof FormState, string>>
@@ -45,6 +57,7 @@ const EMPTY_FORM: FormState = {
   cr9_url: "",
   receipt_url: "",
   amount: "",
+  branch_office: "",
 }
 
 // ─── Validation ───────────────────────────────────────────────────────────────
@@ -98,12 +111,23 @@ function UploadHint({ status }: { status: UploadStatus }) {
 
 export default function FormCr9CreatePage() {
   const navigate = useNavigate()
+  const { user } = useAuth()
+  const needsBranchSelect = !user?.branch_office
+
   const [form, setForm] = useState<FormState>(EMPTY_FORM)
   const [errors, setErrors] = useState<FormErrors>({})
   const [submitting, setSubmitting] = useState(false)
+  const [offices, setOffices] = useState<string[]>([])
 
   const [cr9Status, setCr9Status] = useState<UploadStatus>("idle")
   const [receiptStatus, setReceiptStatus] = useState<UploadStatus>("idle")
+
+  useEffect(() => {
+    if (!needsBranchSelect) return
+    listBranchOffices()
+      .then(setOffices)
+      .catch(() => toast.error("Gagal memuat daftar cabang"))
+  }, [needsBranchSelect])
 
   function handleChange(field: keyof FormState, value: string) {
     setForm((prev) => ({ ...prev, [field]: value }))
@@ -135,6 +159,11 @@ export default function FormCr9CreatePage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     const errs = validate(form)
+
+    if (needsBranchSelect && !form.branch_office) {
+      errs.branch_office = "Cabang wajib dipilih"
+    }
+
     if (Object.keys(errs).length > 0) {
       setErrors(errs)
       return
@@ -152,6 +181,7 @@ export default function FormCr9CreatePage() {
         cr9_url: form.cr9_url,
         receipt_url: form.receipt_url,
         amount: Number(form.amount),
+        ...(needsBranchSelect && { branch_office: form.branch_office }),
       }
       await createFormCr9(payload)
       toast.success("Form CR9 berhasil dibuat")
@@ -191,6 +221,34 @@ export default function FormCr9CreatePage() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+              {needsBranchSelect && (
+                <Field
+                  id="branch_office"
+                  label="Cabang"
+                  error={errors.branch_office}
+                >
+                  <Select
+                    value={form.branch_office}
+                    onValueChange={(v) => handleChange("branch_office", v)}
+                    disabled={submitting}
+                  >
+                    <SelectTrigger id="branch_office" className="w-full">
+                      <SelectValue placeholder="-- Pilih Cabang --" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectGroup>
+                        <SelectLabel>Kantor Cabang</SelectLabel>
+                        {offices.map((o) => (
+                          <SelectItem key={o} value={o}>
+                            {o}
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
+                </Field>
+              )}
+
               <Field
                 id="seafarer_code"
                 label="Seafarer Code"
@@ -198,7 +256,7 @@ export default function FormCr9CreatePage() {
               >
                 <Input
                   id="seafarer_code"
-                  placeholder="Cth: SF-20240118"
+                  placeholder="Cth: 20240118"
                   value={form.seafarer_code}
                   onChange={(e) =>
                     handleChange("seafarer_code", e.target.value)
@@ -213,7 +271,7 @@ export default function FormCr9CreatePage() {
               >
                 <Input
                   id="seaman_code"
-                  placeholder="Cth: ABK-20240118"
+                  placeholder="Cth: 20240118"
                   value={form.seaman_code}
                   onChange={(e) => handleChange("seaman_code", e.target.value)}
                 />
