@@ -21,6 +21,8 @@ import FormCr9CreatePage from "@/pages/form-cr9/create"
 import FormCr9DetailPage from "@/pages/form-cr9/detail"
 import FormCr9EditPage from "@/pages/form-cr9/edit"
 import UsersPage from "@/pages/users"
+import UsersCreatePage from "@/pages/users/create"
+import UsersDetailPage from "@/pages/users/detail"
 import { ROUTES } from "@/routes/config"
 
 export const router = createBrowserRouter([
@@ -56,7 +58,11 @@ export const router = createBrowserRouter([
           // Hanya admin: kelola users
           {
             element: <RoleGuard allowedRoles={[ROLES.ADMIN]} />,
-            children: [{ path: ROUTES.users.path, element: <UsersPage /> }],
+            children: [
+              { path: ROUTES.users.path, element: <UsersPage /> },
+              { path: ROUTES.userCreate.path, element: <UsersCreatePage /> },
+              { path: ROUTES.userDetail.path, element: <UsersDetailPage /> },
+            ],
           },
 
           // Admin, Manager, Staff: akses & kelola Form CR9
