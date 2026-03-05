@@ -5,6 +5,7 @@ import type { RegisterDto } from "@/validations/auth.validation"
 import type {
   CreateUserDto,
   ListUsersQuery,
+  UpdateUserDto,
 } from "@/validations/user.validation"
 
 export async function findByUserName(userName: string): Promise<User | null> {
@@ -135,6 +136,52 @@ export async function createByAdmin(
       "INTERNAL_SERVER_ERROR",
     )
   return row
+}
+
+export async function updateById(
+  id: string,
+  dto: UpdateUserDto,
+): Promise<SafeUser | null> {
+  const fields: string[] = []
+  const values: unknown[] = []
+  let idx = 1
+
+  if (dto.full_name !== undefined) {
+    fields.push(`full_name = $${idx++}`)
+    values.push(dto.full_name)
+  }
+  if (dto.username !== undefined) {
+    fields.push(`username = $${idx++}`)
+    values.push(dto.username)
+  }
+  if (dto.email !== undefined) {
+    fields.push(`email = $${idx++}`)
+    values.push(dto.email)
+  }
+  if (dto.role !== undefined) {
+    fields.push(`role = $${idx++}`)
+    values.push(dto.role)
+  }
+  if (dto.department !== undefined) {
+    fields.push(`department = $${idx++}`)
+    values.push(dto.department)
+  }
+  if (dto.branch_office !== undefined) {
+    fields.push(`branch_office = $${idx++}`)
+    values.push(dto.branch_office)
+  }
+
+  if (fields.length === 0) return null
+
+  fields.push(`updated_at = NOW()`)
+  values.push(id)
+
+  const result = await pool.query<SafeUser>(
+    `UPDATE users SET ${fields.join(", ")} WHERE id = $${idx}
+     RETURNING id, full_name, username, email, role, department, branch_office, created_at, updated_at`,
+    values,
+  )
+  return result.rows[0] ?? null
 }
 
 export async function deleteById(id: string): Promise<boolean> {

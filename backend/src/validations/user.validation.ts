@@ -33,10 +33,46 @@ export const listUsersSchema = z.object({
   search: z.string().optional(),
 })
 
+export const updateUserSchema = z
+  .object({
+    full_name: z.string().min(1, "Nama lengkap wajib diisi").optional(),
+    username: z
+      .string()
+      .min(3, "Username minimal 3 karakter")
+      .max(100, "Username maksimal 100 karakter")
+      .regex(
+        /^[a-zA-Z0-9_]+$/,
+        "Username hanya boleh huruf, angka, dan underscore",
+      )
+      .optional(),
+    email: z.string().email("Format email tidak valid").optional(),
+    role: z
+      .enum(["admin", "staff", "manager", "user"], {
+        error: "Role tidak valid",
+      })
+      .optional(),
+    department: z
+      .enum(["spm", "nautica", "finance", "cabang"])
+      .nullable()
+      .optional(),
+    branch_office: z.string().max(100).nullable().optional(),
+  })
+  .refine(
+    (d) =>
+      d.department === undefined ||
+      d.department !== "cabang" ||
+      !!d.branch_office,
+    {
+      message: "Branch office wajib diisi untuk department cabang",
+      path: ["branch_office"],
+    },
+  )
+
 export const changePasswordSchema = z.object({
   newPassword: z.string().min(8, "Password minimal 8 karakter"),
 })
 
 export type CreateUserDto = z.infer<typeof createUserSchema>
+export type UpdateUserDto = z.infer<typeof updateUserSchema>
 export type ListUsersQuery = z.infer<typeof listUsersSchema>
 export type ChangePasswordDto = z.infer<typeof changePasswordSchema>

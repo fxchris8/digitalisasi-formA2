@@ -7,6 +7,7 @@ import {
   changePasswordSchema,
   createUserSchema,
   listUsersSchema,
+  updateUserSchema,
 } from "@/validations/user.validation"
 
 export async function listUsersHandler(
@@ -18,7 +19,7 @@ export async function listUsersHandler(
     const query = listUsersSchema.parse(req.query)
     const offset = (query.page - 1) * query.limit
     const { rows, total } = await userRepo.findAll({
-      search: query.search,
+      ...(query.search !== undefined && { search: query.search }),
       limit: query.limit,
       offset,
     })
@@ -40,7 +41,8 @@ export async function getUserHandler(
   next: NextFunction,
 ): Promise<void> {
   try {
-    const user = await userRepo.findById(req.params.id)
+    const id = req.params.id as string
+    const user = await userRepo.findById(id)
     if (!user) throw new AppError("User tidak ditemukan", 404, "NOT_FOUND")
     const { password: _pw, ...safe } = user
     sendSuccess(res, "User fetched", safe)
@@ -78,13 +80,46 @@ export async function createUserHandler(
   }
 }
 
+export async function updateUserHandler(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const id = req.params.id as string
+    const dto = updateUserSchema.parse(req.body)
+
+    // Cek duplikat username/email jika diubah
+    if (dto.username) {
+      const existing = await userRepo.findByUserName(dto.username)
+      if (existing && existing.id !== id)
+        throw new AppError(
+          "Username sudah digunakan",
+          409,
+          "USERNAME_ALREADY_EXISTS",
+        )
+    }
+    if (dto.email) {
+      const existing = await userRepo.findByEmail(dto.email)
+      if (existing && existing.id !== id)
+        throw new AppError("Email sudah digunakan", 409, "EMAIL_ALREADY_EXISTS")
+    }
+
+    const updated = await userRepo.updateById(id, dto)
+    if (!updated) throw new AppError("User tidak ditemukan", 404, "NOT_FOUND")
+    sendSuccess(res, "User berhasil diubah", updated)
+  } catch (err) {
+    next(err)
+  }
+}
+
 export async function deleteUserHandler(
   req: Request,
   res: Response,
   next: NextFunction,
 ): Promise<void> {
   try {
-    const { id } = req.params
+    const id = req.params.id as string
     if (req.user?.id === id)
       throw new AppError(
         "Tidak bisa menghapus akun sendiri",
@@ -106,7 +141,7 @@ export async function changePasswordHandler(
   next: NextFunction,
 ): Promise<void> {
   try {
-    const { id } = req.params
+    const id = req.params.id as string
     const dto = changePasswordSchema.parse(req.body)
 
     const user = await userRepo.findById(id)
