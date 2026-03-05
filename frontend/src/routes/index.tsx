@@ -23,6 +23,7 @@ import FormCr9EditPage from "@/pages/form-cr9/edit"
 import UsersPage from "@/pages/users"
 import UsersCreatePage from "@/pages/users/create"
 import UsersDetailPage from "@/pages/users/detail"
+import UsersEditPage from "@/pages/users/edit"
 import { ROUTES } from "@/routes/config"
 
 export const router = createBrowserRouter([
@@ -61,6 +62,7 @@ export const router = createBrowserRouter([
             children: [
               { path: ROUTES.users.path, element: <UsersPage /> },
               { path: ROUTES.userCreate.path, element: <UsersCreatePage /> },
+              { path: ROUTES.userEdit.path, element: <UsersEditPage /> },
               { path: ROUTES.userDetail.path, element: <UsersDetailPage /> },
             ],
           },

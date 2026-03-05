@@ -7,6 +7,7 @@ export const ROUTES = {
   users: { path: "/users", label: "Kelola Users" },
   userCreate: { path: "/users/create", label: "Tambah User" },
   userDetail: { path: "/users/:id", label: "Detail User" },
+  userEdit: { path: "/users/:id/edit", label: "Edit User" },
   formCr9: { path: "/form-cr9", label: "Form CR9" },
   formCr9Create: { path: "/form-cr9/create", label: "Buat Baru" },
   formCr9Detail: { path: "/form-cr9/:id", label: "Detail Form CR9" },
