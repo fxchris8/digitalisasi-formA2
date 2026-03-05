@@ -25,3 +25,12 @@ export interface CreateUserPayload {
   department: string | null
   branch_office: string | null
 }
+
+export interface UpdateUserPayload {
+  full_name?: string
+  username?: string
+  email?: string
+  role?: string
+  department?: string | null
+  branch_office?: string | null
+}
