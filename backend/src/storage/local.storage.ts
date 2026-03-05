@@ -1,8 +1,8 @@
-import { randomUUID } from "crypto"
-import { createReadStream as fsCreateReadStream } from "fs"
-import { mkdir, unlink, writeFile } from "fs/promises"
-import path from "path"
-import type { Readable } from "stream"
+import { randomUUID } from "node:crypto"
+import { createReadStream as fsCreateReadStream } from "node:fs"
+import { mkdir, unlink, writeFile } from "node:fs/promises"
+import path from "node:path"
+import type { Readable } from "node:stream"
 import type { StorageProvider } from "."
 
 const BASE_PATH = (): string =>

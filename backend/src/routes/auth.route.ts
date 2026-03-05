@@ -1,6 +1,7 @@
 import { Router } from "express"
 import {
   getMeHandler,
+  listBranchOfficesHandler,
   loginHandler,
   logoutHandler,
   registerHandler,
@@ -14,6 +15,7 @@ router.post("/register", registerHandler)
 router.post("/login", loginHandler)
 router.post("/logout", authenticate, logoutHandler)
 router.get("/me", authenticate, getMeHandler)
+router.get("/branch-offices", authenticate, listBranchOfficesHandler)
 router.post(
   "/reset-password",
   authenticate,

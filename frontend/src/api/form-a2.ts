@@ -1,4 +1,5 @@
 import apiClient from "@/lib/api-client"
+import { unwrap } from "@/lib/api-utils"
 import type { ApiResponse, PaginatedResponse } from "@/types/api"
 import type {
   AddDetailPayload,
@@ -16,14 +17,14 @@ export async function listFormA2(
     "/api/form-a2",
     { params },
   )
-  return res.data.data!
+  return unwrap(res.data)
 }
 
 export async function getFormA2(id: string): Promise<FormA2WithDetails> {
   const res = await apiClient.get<ApiResponse<FormA2WithDetails>>(
     `/api/form-a2/${id}`,
   )
-  return res.data.data!
+  return unwrap(res.data)
 }
 
 export async function getFormA2ByCr9Id(
@@ -32,7 +33,7 @@ export async function getFormA2ByCr9Id(
   const res = await apiClient.get<ApiResponse<FormA2WithDetails>>(
     `/api/form-a2/by-cr9/${cr9Id}`,
   )
-  return res.data.data!
+  return unwrap(res.data)
 }
 
 export async function updateFormA2(
@@ -43,7 +44,7 @@ export async function updateFormA2(
     `/api/form-a2/${id}`,
     payload,
   )
-  return res.data.data!
+  return unwrap(res.data)
 }
 
 export async function addFormA2Detail(
@@ -54,7 +55,7 @@ export async function addFormA2Detail(
     `/api/form-a2/${id}/details`,
     payload,
   )
-  return res.data.data!
+  return unwrap(res.data)
 }
 
 export async function removeFormA2Detail(
@@ -68,5 +69,5 @@ export async function submitFormA2(id: string): Promise<FormA2> {
   const res = await apiClient.post<ApiResponse<FormA2>>(
     `/api/form-a2/${id}/submit`,
   )
-  return res.data.data!
+  return unwrap(res.data)
 }

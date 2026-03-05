@@ -1,4 +1,5 @@
 import apiClient from "@/lib/api-client"
+import { unwrap } from "@/lib/api-utils"
 import type { ApiResponse, PaginatedResponse } from "@/types/api"
 import type {
   CreateFormCr9Payload,
@@ -14,12 +15,12 @@ export async function listFormCr9(
     "/api/form-cr9",
     { params },
   )
-  return res.data.data!
+  return unwrap(res.data)
 }
 
 export async function getFormCr9(id: string): Promise<FormCr9> {
   const res = await apiClient.get<ApiResponse<FormCr9>>(`/api/form-cr9/${id}`)
-  return res.data.data!
+  return unwrap(res.data)
 }
 
 export async function createFormCr9(
@@ -29,7 +30,7 @@ export async function createFormCr9(
     "/api/form-cr9",
     payload,
   )
-  return res.data.data!
+  return unwrap(res.data)
 }
 
 export async function updateFormCr9(
@@ -40,7 +41,7 @@ export async function updateFormCr9(
     `/api/form-cr9/${id}`,
     payload,
   )
-  return res.data.data!
+  return unwrap(res.data)
 }
 
 export async function deleteFormCr9(id: string): Promise<void> {

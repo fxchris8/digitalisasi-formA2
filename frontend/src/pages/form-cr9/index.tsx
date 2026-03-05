@@ -257,7 +257,7 @@ export default function FormCr9Page() {
               <Label htmlFor="filter-seaman-code">Seaman Code</Label>
               <Input
                 id="filter-seaman-code"
-                placeholder="Cth: ABK-20240118"
+                placeholder="Cth: 20240118"
                 value={draft.seaman_code}
                 onChange={(e) =>
                   setDraft((prev) => ({ ...prev, seaman_code: e.target.value }))

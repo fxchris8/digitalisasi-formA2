@@ -38,6 +38,7 @@ export interface CreateFormCr9Payload {
   cr9_url: string
   receipt_url: string
   amount: number
+  branch_office?: string
 }
 
 export type UpdateFormCr9Payload = Partial<CreateFormCr9Payload>

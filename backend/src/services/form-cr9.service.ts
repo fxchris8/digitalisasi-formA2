@@ -101,7 +101,7 @@ export async function createFormCr9(user: JwtPayload, dto: CreateFormCr9Dto) {
   const now = new Date()
   const month = now.getMonth() + 1
   const year = now.getFullYear()
-  const branchOffice = resolveBranchOffice(user)
+  const branchOffice = dto.branch_office ?? resolveBranchOffice(user)
 
   const seq = await repo.nextSeqNumber(branchOffice, year)
   const formNumber = buildFormNumber(branchOffice, seq, month, year)
@@ -203,7 +203,7 @@ export async function deleteFormCr9(user: JwtPayload, id: string) {
   const form = await repo.findById(id)
   if (!form) throw new AppError("Form CR9 tidak ditemukan", 404, "NOT_FOUND")
 
-  const deleted = await repo.remove(id)
+  const deleted = await repo.removeCascade(id)
   if (!deleted)
     throw new AppError("Gagal menghapus Form CR9", 500, "INTERNAL_SERVER_ERROR")
 }

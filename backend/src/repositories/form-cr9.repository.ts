@@ -1,5 +1,6 @@
 import pool from "@/config/database"
 import type { FormCr9, FormCr9WithCreator } from "@/models/form-cr9.model"
+import { AppError } from "@/utils/app-error"
 import type {
   CreateFormCr9Dto,
   UpdateFormCr9Dto,
@@ -25,7 +26,9 @@ export async function nextSeqNumber(
     `,
     [branchOffice, year],
   )
-  return result.rows[0]!.last_seq
+  const seqRow = result.rows[0]
+  if (!seqRow) throw new AppError("Failed to generate sequence number", 500)
+  return seqRow.last_seq
 }
 
 // ── CRUD ──────────────────────────────────────────────────────────────────────
@@ -81,7 +84,7 @@ export async function findAll(params: {
     `SELECT COUNT(*) AS count FROM form_cr9 f ${where}`,
     values,
   )
-  const total = Number(countResult.rows[0]!.count)
+  const total = Number((countResult.rows[0] as { count: string }).count)
 
   const dataResult = await pool.query<FormCr9WithCreator>(
     /* sql */ `
@@ -155,7 +158,9 @@ export async function create(
       dto.amount,
     ],
   )
-  return result.rows[0]!
+  const row = result.rows[0]
+  if (!row) throw new AppError("Failed to create Form CR9", 500)
+  return row
 }
 
 export async function update(
@@ -223,4 +228,44 @@ export async function update(
 export async function remove(id: string): Promise<boolean> {
   const result = await pool.query("DELETE FROM form_cr9 WHERE id = $1", [id])
   return (result.rowCount ?? 0) > 0
+}
+
+/**
+ * Hapus CR9 beserta seluruh data terkait dalam satu transaksi:
+ * form_a2_revision → form_a2_approval_log → form_a2_detail → form_a2 → form_cr9
+ */
+export async function removeCascade(id: string): Promise<boolean> {
+  const client = await pool.connect()
+  try {
+    await client.query("BEGIN")
+
+    await client.query(
+      `DELETE FROM form_a2_revision
+       WHERE form_a2_id IN (SELECT id FROM form_a2 WHERE form_cr9_id = $1)`,
+      [id],
+    )
+    await client.query(
+      `DELETE FROM form_a2_approval_log
+       WHERE form_a2_id IN (SELECT id FROM form_a2 WHERE form_cr9_id = $1)`,
+      [id],
+    )
+    await client.query(
+      `DELETE FROM form_a2_detail
+       WHERE form_a2_id IN (SELECT id FROM form_a2 WHERE form_cr9_id = $1)`,
+      [id],
+    )
+    await client.query(`DELETE FROM form_a2 WHERE form_cr9_id = $1`, [id])
+
+    const result = await client.query(`DELETE FROM form_cr9 WHERE id = $1`, [
+      id,
+    ])
+
+    await client.query("COMMIT")
+    return (result.rowCount ?? 0) > 0
+  } catch (err) {
+    await client.query("ROLLBACK")
+    throw err
+  } finally {
+    client.release()
+  }
 }
