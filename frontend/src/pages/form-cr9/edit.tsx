@@ -48,7 +48,7 @@ function validate(form: FormState): FormErrors {
   const amt = Number(form.amount)
   if (!form.amount.trim()) {
     errors.amount = "Jumlah biaya wajib diisi"
-  } else if (isNaN(amt) || amt <= 0) {
+  } else if (Number.isNaN(amt) || amt <= 0) {
     errors.amount = "Jumlah biaya harus lebih dari 0"
   }
   return errors

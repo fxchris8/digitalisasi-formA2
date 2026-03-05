@@ -29,11 +29,9 @@ export default function LoginPage() {
     setIsLoading(true)
 
     try {
-      const res = await loginApi({ username, password })
-      if (res.data) {
-        login(res.data)
-        navigate("/dashboard")
-      }
+      const user = await loginApi({ username, password })
+      login(user)
+      navigate("/dashboard")
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Terjadi kesalahan")
     } finally {
