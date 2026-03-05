@@ -1,5 +1,6 @@
 import type { ApiResponse } from "@/types/api"
 import apiClient from "./api-client"
+import { unwrap } from "./api-utils"
 
 /**
  * Upload a PDF file to the backend storage.
@@ -28,9 +29,7 @@ export async function uploadFile(file: File, folder: string): Promise<string> {
     { headers: { "Content-Type": undefined } },
   )
 
-  const path = res.data.data?.path
-  if (!path) throw new Error("Upload gagal: respons tidak valid")
-  return path
+  return unwrap(res.data).path
 }
 
 /**

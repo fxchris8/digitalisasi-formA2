@@ -1,4 +1,5 @@
 import apiClient from "@/lib/api-client"
+import { unwrap } from "@/lib/api-utils"
 import type { ApiResponse } from "@/types/api"
 import type { User } from "@/types/auth"
 
@@ -7,14 +8,12 @@ export interface LoginCredentials {
   password: string
 }
 
-export async function login(
-  credentials: LoginCredentials,
-): Promise<ApiResponse<User>> {
+export async function login(credentials: LoginCredentials): Promise<User> {
   const res = await apiClient.post<ApiResponse<User>>(
     "/api/auth/login",
     credentials,
   )
-  return res.data
+  return unwrap(res.data)
 }
 
 export async function logout(): Promise<void> {
@@ -23,5 +22,5 @@ export async function logout(): Promise<void> {
 
 export async function me(): Promise<User> {
   const res = await apiClient.get<ApiResponse<User>>("/api/auth/me")
-  return res.data.data!
+  return unwrap(res.data)
 }

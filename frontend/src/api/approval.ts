@@ -1,4 +1,5 @@
 import apiClient from "@/lib/api-client"
+import { unwrap } from "@/lib/api-utils"
 import type { ApiResponse } from "@/types/api"
 import type {
   ApprovePayload,
@@ -9,7 +10,7 @@ import type {
 
 export async function listPendingApproval(): Promise<FormA2[]> {
   const res = await apiClient.get<ApiResponse<FormA2[]>>("/api/approval")
-  return res.data.data!
+  return unwrap(res.data)
 }
 
 export async function approveFormA2(
@@ -20,7 +21,7 @@ export async function approveFormA2(
     `/api/approval/${id}/approve`,
     payload,
   )
-  return res.data.data!
+  return unwrap(res.data)
 }
 
 export async function requestRevisionFormA2(
@@ -31,7 +32,7 @@ export async function requestRevisionFormA2(
     `/api/approval/${id}/revision`,
     payload,
   )
-  return res.data.data!
+  return unwrap(res.data)
 }
 
 export async function rejectFormA2(
@@ -42,5 +43,5 @@ export async function rejectFormA2(
     `/api/approval/${id}/reject`,
     payload,
   )
-  return res.data.data!
+  return unwrap(res.data)
 }
