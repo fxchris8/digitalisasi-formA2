@@ -12,6 +12,7 @@ export const createFormCr9Schema = z.object({
   amount: z
     .number({ error: "Jumlah harus berupa angka" })
     .positive("Jumlah harus lebih dari 0"),
+  branch_office: z.string().min(1).optional(),
 })
 
 export const updateFormCr9Schema = createFormCr9Schema.partial()

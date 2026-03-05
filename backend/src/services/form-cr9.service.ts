@@ -101,7 +101,7 @@ export async function createFormCr9(user: JwtPayload, dto: CreateFormCr9Dto) {
   const now = new Date()
   const month = now.getMonth() + 1
   const year = now.getFullYear()
-  const branchOffice = resolveBranchOffice(user)
+  const branchOffice = dto.branch_office ?? resolveBranchOffice(user)
 
   const seq = await repo.nextSeqNumber(branchOffice, year)
   const formNumber = buildFormNumber(branchOffice, seq, month, year)
