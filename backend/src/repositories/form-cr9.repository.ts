@@ -229,3 +229,43 @@ export async function remove(id: string): Promise<boolean> {
   const result = await pool.query("DELETE FROM form_cr9 WHERE id = $1", [id])
   return (result.rowCount ?? 0) > 0
 }
+
+/**
+ * Hapus CR9 beserta seluruh data terkait dalam satu transaksi:
+ * form_a2_revision → form_a2_approval_log → form_a2_detail → form_a2 → form_cr9
+ */
+export async function removeCascade(id: string): Promise<boolean> {
+  const client = await pool.connect()
+  try {
+    await client.query("BEGIN")
+
+    await client.query(
+      `DELETE FROM form_a2_revision
+       WHERE form_a2_id IN (SELECT id FROM form_a2 WHERE form_cr9_id = $1)`,
+      [id],
+    )
+    await client.query(
+      `DELETE FROM form_a2_approval_log
+       WHERE form_a2_id IN (SELECT id FROM form_a2 WHERE form_cr9_id = $1)`,
+      [id],
+    )
+    await client.query(
+      `DELETE FROM form_a2_detail
+       WHERE form_a2_id IN (SELECT id FROM form_a2 WHERE form_cr9_id = $1)`,
+      [id],
+    )
+    await client.query(`DELETE FROM form_a2 WHERE form_cr9_id = $1`, [id])
+
+    const result = await client.query(`DELETE FROM form_cr9 WHERE id = $1`, [
+      id,
+    ])
+
+    await client.query("COMMIT")
+    return (result.rowCount ?? 0) > 0
+  } catch (err) {
+    await client.query("ROLLBACK")
+    throw err
+  } finally {
+    client.release()
+  }
+}
