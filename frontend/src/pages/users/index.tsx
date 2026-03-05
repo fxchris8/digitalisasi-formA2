@@ -209,14 +209,23 @@ export default function UsersPage() {
                   <TableCell className="text-muted-foreground">
                     {u.branch_office ?? "-"}
                   </TableCell>
-                  <TableCell className="text-center">
-                    <Button
-                      size="xs"
-                      className="text-white text-[10px] bg-blue-500 hover:bg-blue-600"
-                      onClick={() => navigate(`/users/${u.id}`)}
-                    >
-                      DETAIL
-                    </Button>
+                  <TableCell>
+                    <div className="flex items-center justify-center gap-2">
+                      <Button
+                        size="xs"
+                        className="text-white text-[10px] bg-blue-500 hover:bg-blue-600"
+                        onClick={() => navigate(`/users/${u.id}`)}
+                      >
+                        DETAIL
+                      </Button>
+                      <Button
+                        size="xs"
+                        className="text-white text-[10px] bg-amber-600 hover:bg-amber-700"
+                        onClick={() => navigate(`/users/${u.id}/edit`)}
+                      >
+                        EDIT
+                      </Button>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))

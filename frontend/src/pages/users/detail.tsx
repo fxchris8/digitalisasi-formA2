@@ -19,23 +19,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { InfoRow } from "@/components/ui/info-row"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { useAuth } from "@/contexts/auth.context"
-import { formatDate } from "@/lib/format"
+import { formatDateTime } from "@/lib/format"
 import { ROUTES } from "@/routes/config"
 import type { UserItem } from "@/types/user"
-
-// ─── Info row helper ──────────────────────────────────────────────────────────
-
-function InfoRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex flex-col sm:flex-row sm:items-center py-2 border-b last:border-0">
-      <span className="sm:w-40 text-sm font-medium text-gray-600">{label}</span>
-      <span className="text-sm text-gray-900 capitalize">{value}</span>
-    </div>
-  )
-}
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
@@ -139,6 +129,14 @@ export default function UsersDetailPage() {
           <h1 className="text-4xl font-semibold text-gray-900">Detail User</h1>
           <p className="mt-0.5 text-sm text-gray-500">{user.full_name}</p>
         </div>
+        <div className="flex gap-2">
+          <Button
+            className="bg-amber-600 hover:bg-amber-700 text-white"
+            onClick={() => navigate(`/users/${id}/edit`)}
+          >
+            Edit
+          </Button>
+        </div>
       </div>
 
       {/* Info */}
@@ -153,8 +151,8 @@ export default function UsersDetailPage() {
           <InfoRow label="Role" value={user.role} />
           <InfoRow label="Department" value={user.department ?? "-"} />
           <InfoRow label="Kantor Cabang" value={user.branch_office ?? "-"} />
-          <InfoRow label="Dibuat" value={formatDate(user.created_at)} />
-          <InfoRow label="Diperbarui" value={formatDate(user.updated_at)} />
+          <InfoRow label="Dibuat" value={formatDateTime(user.created_at)} />
+          <InfoRow label="Diperbarui" value={formatDateTime(user.updated_at)} />
         </CardContent>
       </Card>
 
