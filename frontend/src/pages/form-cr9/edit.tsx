@@ -15,6 +15,7 @@ import { Label } from "@/components/ui/label"
 import { getStorageUrl, uploadFile } from "@/lib/storage"
 import { ROUTES } from "@/routes/config"
 import type { FormCr9, UpdateFormCr9Payload } from "@/types/form-cr9"
+import { formCr9Schema } from "@/validations/form-cr9.validation"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -35,21 +36,12 @@ type FormErrors = Partial<Record<keyof FormState, string>>
 type UploadStatus = "idle" | "uploading" | "done" | "error"
 
 function validate(form: FormState): FormErrors {
+  const result = formCr9Schema.safeParse(form)
+  if (result.success) return {}
   const errors: FormErrors = {}
-  if (!form.seafarer_code.trim())
-    errors.seafarer_code = "Seafarer code wajib diisi"
-  if (!form.seaman_code.trim()) errors.seaman_code = "Seaman code wajib diisi"
-  if (!form.seaman_name.trim()) errors.seaman_name = "Seaman name wajib diisi"
-  if (!form.position.trim()) errors.position = "Jabatan wajib diisi"
-  if (!form.ship.trim()) errors.ship = "Nama kapal wajib diisi"
-  if (!form.complaint.trim()) errors.complaint = "Jenis keluhan wajib diisi"
-  if (!form.cr9_url.trim()) errors.cr9_url = "Dokumen CR9 wajib diupload"
-  if (!form.receipt_url.trim()) errors.receipt_url = "Kwitansi wajib diupload"
-  const amt = Number(form.amount)
-  if (!form.amount.trim()) {
-    errors.amount = "Jumlah biaya wajib diisi"
-  } else if (Number.isNaN(amt) || amt <= 0) {
-    errors.amount = "Jumlah biaya harus lebih dari 0"
+  for (const issue of result.error.issues) {
+    const field = issue.path[0] as keyof FormErrors
+    if (!errors[field]) errors[field] = issue.message
   }
   return errors
 }
