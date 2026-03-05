@@ -1,9 +1,14 @@
-export interface ApiResponse<T = undefined> {
-  success: boolean
-  message: string
-  data?: T
-  error?: string
-}
+export type ApiResponse<T> =
+  | {
+      success: true
+      message: string
+      data: T
+    }
+  | {
+      success: false
+      message: string
+      error: string
+    }
 
 export interface PaginatedResponse<T> {
   data: T[]
