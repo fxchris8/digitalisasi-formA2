@@ -62,3 +62,10 @@ export async function updatePassword(
     [hashedPassword, id],
   )
 }
+
+export async function findDistinctBranchOffices(): Promise<string[]> {
+  const result = await pool.query<{ branch_office: string }>(
+    "SELECT DISTINCT branch_office FROM users WHERE branch_office IS NOT NULL ORDER BY branch_office",
+  )
+  return result.rows.map((r) => r.branch_office)
+}
