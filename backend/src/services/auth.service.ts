@@ -28,7 +28,9 @@ export async function register(dto: RegisterDto): Promise<void> {
   }
 
   const hashedPassword = await bcrypt.hash(dto.password, 10)
-  await userRepository.createUser({ ...dto, hashedPassword })
+  const created = await userRepository.createUser({ ...dto, hashedPassword })
+  if (!created)
+    throw new AppError("Gagal mendaftarkan user", 500, "INTERNAL_SERVER_ERROR")
 }
 
 export async function login(dto: LoginDto): Promise<{
