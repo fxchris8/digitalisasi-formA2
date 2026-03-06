@@ -1,15 +1,19 @@
 import { Router } from "express"
 import {
   approveFormA2Handler,
+  listApprovalLogsHandler,
   listPendingApprovalHandler,
   rejectFormA2Handler,
   requestRevisionHandler,
 } from "@/handlers/approval.handler"
-import { authenticate } from "@/middlewares/auth"
+import { authenticate, authorize } from "@/middlewares/auth"
 
 const router: Router = Router()
 
 router.use(authenticate)
+
+// GET  /api/approval/log      — semua approval log (admin only)
+router.get("/log", authorize("admin"), listApprovalLogsHandler)
 
 // GET  /api/approval          — daftar pengajuan menunggu approval user ini
 router.get("/", listPendingApprovalHandler)

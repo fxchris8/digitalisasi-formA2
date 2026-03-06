@@ -1,6 +1,6 @@
 import type { NextFunction, Request, Response } from "express"
-import * as userRepo from "@/repositories/user.repository"
 import * as authService from "@/services/auth.service"
+import * as userService from "@/services/user.service"
 import { sendSuccess } from "@/utils/response"
 import {
   loginSchema,
@@ -85,7 +85,7 @@ export async function listBranchOfficesHandler(
   next: NextFunction,
 ): Promise<void> {
   try {
-    const offices = await userRepo.findDistinctBranchOffices()
+    const offices = await userService.listBranchOffices()
     sendSuccess(res, "Branch offices fetched", offices)
   } catch (err) {
     next(err)

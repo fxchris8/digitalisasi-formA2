@@ -1,6 +1,5 @@
 import pool from "@/config/database"
 import type { FormCr9, FormCr9WithCreator } from "@/models/form-cr9.model"
-import { AppError } from "@/utils/app-error"
 import type {
   CreateFormCr9Dto,
   UpdateFormCr9Dto,
@@ -15,7 +14,7 @@ import type {
 export async function nextSeqNumber(
   branchOffice: string,
   year: number,
-): Promise<number> {
+): Promise<number | null> {
   const result = await pool.query<{ last_seq: number }>(
     /* sql */ `
       INSERT INTO form_number_counter (form_type, branch_office, year, last_seq)
@@ -26,9 +25,7 @@ export async function nextSeqNumber(
     `,
     [branchOffice, year],
   )
-  const seqRow = result.rows[0]
-  if (!seqRow) throw new AppError("Failed to generate sequence number", 500)
-  return seqRow.last_seq
+  return result.rows[0]?.last_seq ?? null
 }
 
 // ── CRUD ──────────────────────────────────────────────────────────────────────
@@ -125,7 +122,7 @@ export async function create(
   year: number,
   formNumber: string,
   dto: CreateFormCr9Dto,
-): Promise<FormCr9> {
+): Promise<FormCr9 | null> {
   const result = await pool.query<FormCr9>(
     /* sql */ `
       INSERT INTO form_cr9 (
@@ -158,9 +155,7 @@ export async function create(
       dto.amount,
     ],
   )
-  const row = result.rows[0]
-  if (!row) throw new AppError("Failed to create Form CR9", 500)
-  return row
+  return result.rows[0] ?? null
 }
 
 export async function update(

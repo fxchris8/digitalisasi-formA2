@@ -117,7 +117,14 @@ export async function addFormA2Detail(
     )
   }
 
-  return repo.addDetail(formA2Id, dto)
+  const detail = await repo.addDetail(formA2Id, dto)
+  if (!detail)
+    throw new AppError(
+      "Gagal menambah detail biaya",
+      500,
+      "INTERNAL_SERVER_ERROR",
+    )
+  return detail
 }
 
 export async function removeFormA2Detail(

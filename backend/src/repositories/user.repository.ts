@@ -1,6 +1,5 @@
 import pool from "@/config/database"
 import type { SafeUser, User } from "@/models/user.model"
-import { AppError } from "@/utils/app-error"
 import type { RegisterDto } from "@/validations/auth.validation"
 import type {
   CreateUserDto,
@@ -34,7 +33,7 @@ export async function findById(id: string): Promise<User | null> {
 
 export async function createUser(
   data: RegisterDto & { hashedPassword: string },
-): Promise<SafeUser> {
+): Promise<SafeUser | null> {
   const result = await pool.query<SafeUser>(
     `INSERT INTO users (full_name, username, email, password, department, branch_office)
          VALUES ($1, $2, $3, $4, $5, $6)
@@ -48,14 +47,7 @@ export async function createUser(
       data.branch_office ?? null,
     ],
   )
-  const row = result.rows[0]
-  if (!row)
-    throw new AppError(
-      "Unexpected database error",
-      500,
-      "INTERNAL_SERVER_ERROR",
-    )
-  return row
+  return result.rows[0] ?? null
 }
 
 export async function updatePassword(
@@ -113,7 +105,7 @@ export async function findAll(
 
 export async function createByAdmin(
   data: CreateUserDto & { hashedPassword: string },
-): Promise<SafeUser> {
+): Promise<SafeUser | null> {
   const result = await pool.query<SafeUser>(
     `INSERT INTO users (full_name, username, email, password, role, department, branch_office)
      VALUES ($1, $2, $3, $4, $5, $6, $7)
@@ -128,14 +120,7 @@ export async function createByAdmin(
       data.branch_office ?? null,
     ],
   )
-  const row = result.rows[0]
-  if (!row)
-    throw new AppError(
-      "Unexpected database error",
-      500,
-      "INTERNAL_SERVER_ERROR",
-    )
-  return row
+  return result.rows[0] ?? null
 }
 
 export async function updateById(

@@ -8,7 +8,6 @@ import type {
   FormA2WithDetails,
 } from "@/models/form-a2.model"
 import type { FormCr9 } from "@/models/form-cr9.model"
-import { AppError } from "@/utils/app-error"
 import type {
   AddDetailDto,
   UpdateFormA2Dto,
@@ -47,7 +46,7 @@ export async function submitCr9AndCreateA2(params: {
       [params.cr9Id],
     )
     const cr9 = cr9Res.rows[0]
-    if (!cr9) throw new AppError("CR9 not found", 404, "NOT_FOUND")
+    if (!cr9) throw new Error("CR9 not found")
 
     // 2. Increment A2 global counter
     const seqRes = await client.query<{ last_seq: number }>(
@@ -61,7 +60,7 @@ export async function submitCr9AndCreateA2(params: {
       [params.year],
     )
     const seqRow = seqRes.rows[0]
-    if (!seqRow) throw new AppError("Failed to generate sequence number", 500)
+    if (!seqRow) throw new Error("Failed to generate sequence number")
     const seq = seqRow.last_seq
 
     // 3. Build form number: A2/0001/01/2024
@@ -89,7 +88,7 @@ export async function submitCr9AndCreateA2(params: {
       ],
     )
     const a2 = a2Res.rows[0]
-    if (!a2) throw new AppError("Failed to create Form A2", 500)
+    if (!a2) throw new Error("Failed to create Form A2")
 
     await client.query("COMMIT")
     return { cr9, a2 }
@@ -287,7 +286,7 @@ export async function update(
 export async function addDetail(
   formA2Id: string,
   dto: AddDetailDto,
-): Promise<FormA2Detail> {
+): Promise<FormA2Detail | null> {
   const result = await pool.query<FormA2Detail>(
     /* sql */ `
       INSERT INTO form_a2_detail (form_a2_id, description, hospital_name, hospital_category, amount)
@@ -302,9 +301,7 @@ export async function addDetail(
       dto.amount,
     ],
   )
-  const row = result.rows[0]
-  if (!row) throw new AppError("Failed to add detail", 500)
-  return row
+  return result.rows[0] ?? null
 }
 
 export async function removeDetail(detailId: string): Promise<boolean> {
