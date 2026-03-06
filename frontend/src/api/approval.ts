@@ -1,12 +1,22 @@
 import apiClient from "@/lib/api-client"
 import { unwrap } from "@/lib/api-utils"
-import type { ApiResponse } from "@/types/api"
+import type { ApiResponse, PaginatedResponse } from "@/types/api"
+import type { ApprovalLogItem, ApprovalLogListParams } from "@/types/approval"
 import type {
   ApprovePayload,
   FormA2,
   RejectPayload,
   RevisionPayload,
 } from "@/types/form-a2"
+
+export async function listApprovalLogs(
+  params?: ApprovalLogListParams,
+): Promise<PaginatedResponse<ApprovalLogItem>> {
+  const res = await apiClient.get<
+    ApiResponse<PaginatedResponse<ApprovalLogItem>>
+  >("/api/approval/log", { params })
+  return unwrap(res.data)
+}
 
 export async function listPendingApproval(): Promise<FormA2[]> {
   const res = await apiClient.get<ApiResponse<FormA2[]>>("/api/approval")
