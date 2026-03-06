@@ -1,8 +1,10 @@
 import type { ApprovalStep } from "@/models/form-a2.model"
+import * as approvalRepo from "@/repositories/approval.repository"
 import * as repo from "@/repositories/form-a2.repository"
 import type { JwtPayload } from "@/types/auth"
 import { AppError } from "@/utils/app-error"
 import type {
+  ApprovalLogQueryDto,
   ApproveDto,
   RejectDto,
   RevisionDto,
@@ -105,6 +107,29 @@ export async function requestRevisionFormA2(
     )
   }
   return updated
+}
+
+export async function listApprovalLogs(dto: ApprovalLogQueryDto) {
+  const limit = dto.limit ?? 15
+  const page = dto.page ?? 1
+  const offset = (page - 1) * limit
+  const { rows, total } = await approvalRepo.findAllApprovalLogs({
+    ...(dto.form_number && { formNumber: dto.form_number }),
+    ...(dto.seaman_name && { seamanName: dto.seaman_name }),
+    ...(dto.step && { step: dto.step as ApprovalStep }),
+    ...(dto.status && { status: dto.status }),
+    ...(dto.from_date && { fromDate: dto.from_date }),
+    ...(dto.to_date && { toDate: dto.to_date }),
+    limit,
+    offset,
+  })
+  return {
+    data: rows,
+    total,
+    page,
+    limit,
+    total_pages: Math.ceil(total / limit),
+  }
 }
 
 export async function rejectFormA2(

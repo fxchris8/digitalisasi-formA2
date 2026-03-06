@@ -3,10 +3,29 @@ import * as approvalService from "@/services/approval.service"
 import { AppError } from "@/utils/app-error"
 import { sendSuccess } from "@/utils/response"
 import {
+  approvalLogQuerySchema,
   approveSchema,
   rejectSchema,
   revisionSchema,
 } from "@/validations/approval.validation"
+
+export async function listApprovalLogsHandler(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    if (!req.user) {
+      next(new AppError("Unauthorized", 401, "UNAUTHORIZED"))
+      return
+    }
+    const query = approvalLogQuerySchema.parse(req.query)
+    const result = await approvalService.listApprovalLogs(query)
+    sendSuccess(res, "Approval logs fetched", result)
+  } catch (err) {
+    next(err)
+  }
+}
 
 export async function listPendingApprovalHandler(
   req: Request,
