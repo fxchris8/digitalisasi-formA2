@@ -104,9 +104,27 @@ export async function createFormCr9(user: JwtPayload, dto: CreateFormCr9Dto) {
   const branchOffice = dto.branch_office ?? resolveBranchOffice(user)
 
   const seq = await repo.nextSeqNumber(branchOffice, year)
+  if (seq === null)
+    throw new AppError(
+      "Gagal generate nomor urut form",
+      500,
+      "INTERNAL_SERVER_ERROR",
+    )
+
   const formNumber = buildFormNumber(branchOffice, seq, month, year)
 
-  return repo.create(user.id, branchOffice, seq, month, year, formNumber, dto)
+  const form = await repo.create(
+    user.id,
+    branchOffice,
+    seq,
+    month,
+    year,
+    formNumber,
+    dto,
+  )
+  if (!form)
+    throw new AppError("Gagal membuat Form CR9", 500, "INTERNAL_SERVER_ERROR")
+  return form
 }
 
 export async function updateFormCr9(
