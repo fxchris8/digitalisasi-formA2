@@ -1,0 +1,38 @@
+# Dependencies 
+node_modules/
+.pnpm-store/
+
+# Build outputs
+dist/
+build/
+backend/dist/
+frontend/dist/
+
+# Environment variable
+# File .env lokal tidak boleh masuk ke image
+.env
+.env.local
+.env.*.local
+backend/.env
+frontend/.env
+
+# Runtime data
+backend/storage/
+
+# Git
+.git/
+.gitignore
+
+# Logs
+*.log
+logs/
+
+# OS / Editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Misc
+*.pem
+coverage/

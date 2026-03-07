@@ -1,21 +1,21 @@
-# ── Dependencies ──────────────────────────────────────────────────────────────
+# Dependencies
 node_modules/
 .pnpm-store/
 
-# ── Build outputs ─────────────────────────────────────────────────────────────
+# Build outputs
 dist/
 build/
 dist-ssr/
 *.local
 
-# ── Environment variables ─────────────────────────────────────────────────────
+# Environment variables
 .env
 .env.local
 .env.*.local
 # Allow example files
 !.env.example
 
-# ── Logs ──────────────────────────────────────────────────────────────────────
+# Logs
 logs/
 *.log
 npm-debug.log*
@@ -24,17 +24,17 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-# ── Folders ───────────────────────────────────────────────────
+# Folders
 /backend/storage/
 
-# ── TypeScript ────────────────────────────────────────────────────────────────
+# TypeScript
 *.tsbuildinfo
 
-# ── Test / Coverage ───────────────────────────────────────────────────────────
+# Test / Coverage
 coverage/
 .nyc_output/
 
-# ── Editor ────────────────────────────────────────────────────────────────────
+# Editor
 .vscode/*
 !.vscode/extensions.json
 !.vscode/settings.json
@@ -45,9 +45,9 @@ coverage/
 *.sln
 *.sw?
 
-# ── OS ────────────────────────────────────────────────────────────────────────
+# OS
 .DS_Store
 Thumbs.db
 
-# ── Misc ──────────────────────────────────────────────────────────────────────
+# Misc
 *.pem
