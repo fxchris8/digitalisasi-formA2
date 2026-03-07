@@ -1,3 +1,23 @@
+export interface ManagerStats {
+  submitted: number
+  pending: number
+  approved: number
+  revision: number
+  rejected: number
+}
+
+export interface BranchStats {
+  form_cr9: {
+    draft: number
+    submitted: number
+  }
+  form_a2: {
+    approved: number
+    revision: number
+    rejected: number
+  }
+}
+
 export interface AdminStats {
   users: {
     total: number
