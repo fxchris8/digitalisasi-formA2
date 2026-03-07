@@ -18,8 +18,6 @@ Monorepo dengan tiga komponen utama:
 
 > Package manager yang digunakan: **pnpm**
 
----
-
 ## Menjalankan Aplikasi
 
 ### Prasyarat
@@ -27,8 +25,6 @@ Monorepo dengan tiga komponen utama:
 - Node.js >= 20
 - pnpm >= 9 — install dengan `npm install -g pnpm`
 - PostgreSQL (lokal atau remote)
-
----
 
 ### Lokal (Development)
 
@@ -76,8 +72,6 @@ pnpm dev
 cd frontend
 pnpm dev
 ```
-
----
 
 ### Production (Docker)
 
