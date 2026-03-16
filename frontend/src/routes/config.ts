@@ -20,6 +20,12 @@ export const ROUTES = {
   approvalDetail: { path: "/approval/:id", label: "Cek Pengajuan" },
   approvalLog: { path: "/approval-log", label: "Approval Log" },
   seaman: { path: "/seaman", label: "Kelola Seaman" },
+  branchOffice: { path: "/branch-offices", label: "Kantor Cabang" },
+  branchOfficeCreate: {
+    path: "/branch-offices/create",
+    label: "Tambah Cabang",
+  },
+  branchOfficeEdit: { path: "/branch-offices/:id/edit", label: "Edit Cabang" },
   forbidden: { path: "/403", label: "Akses Ditolak" },
 } as const
 
