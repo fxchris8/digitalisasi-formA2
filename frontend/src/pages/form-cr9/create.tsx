@@ -3,6 +3,7 @@ import { useNavigate } from "react-router"
 import { toast } from "sonner"
 import { listBranchOffices } from "@/api/auth"
 import { createFormCr9 } from "@/api/form-cr9"
+import { SeamanAutocompleteField } from "@/components/form-cr9/seaman-autocomplete-field"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -26,6 +27,7 @@ import { useAuth } from "@/contexts/auth.context"
 import { uploadFile } from "@/lib/storage"
 import { ROUTES } from "@/routes/config"
 import type { CreateFormCr9Payload } from "@/types/form-cr9"
+import type { Seaman } from "@/types/seaman"
 import { formCr9Schema } from "@/validations/form-cr9.validation"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -118,6 +120,7 @@ export default function FormCr9CreatePage() {
   const [errors, setErrors] = useState<FormErrors>({})
   const [submitting, setSubmitting] = useState(false)
   const [offices, setOffices] = useState<string[]>([])
+  const [isSeamanSelected, setIsSeamanSelected] = useState(false)
 
   const [cr9Status, setCr9Status] = useState<UploadStatus>("idle")
   const [receiptStatus, setReceiptStatus] = useState<UploadStatus>("idle")
@@ -132,6 +135,53 @@ export default function FormCr9CreatePage() {
   function handleChange(field: keyof FormState, value: string) {
     setForm((prev) => ({ ...prev, [field]: value }))
     if (errors[field]) setErrors((prev) => ({ ...prev, [field]: undefined }))
+  }
+
+  function handleSeamanFieldChange(
+    field: "seafarer_code" | "seaman_code" | "seaman_name",
+    value: string,
+  ) {
+    if (isSeamanSelected) {
+      setIsSeamanSelected(false)
+      setForm((prev) => ({
+        ...prev,
+        seafarer_code: field === "seafarer_code" ? value : "",
+        seaman_code: field === "seaman_code" ? value : "",
+        seaman_name: field === "seaman_name" ? value : "",
+        position: "",
+        ship: "",
+      }))
+      setErrors((prev) => ({
+        ...prev,
+        seafarer_code: undefined,
+        seaman_code: undefined,
+        seaman_name: undefined,
+        position: undefined,
+        ship: undefined,
+      }))
+    } else {
+      handleChange(field, value)
+    }
+  }
+
+  function handleSeamanSelect(seaman: Seaman) {
+    setIsSeamanSelected(true)
+    setForm((prev) => ({
+      ...prev,
+      seafarer_code: seaman.seafarercode ?? "",
+      seaman_code: seaman.seamancode,
+      seaman_name: seaman.name,
+      position: seaman.last_position ?? "",
+      ship: seaman.last_location ?? "",
+    }))
+    setErrors((prev) => ({
+      ...prev,
+      seafarer_code: undefined,
+      seaman_code: undefined,
+      seaman_name: undefined,
+      position: undefined,
+      ship: undefined,
+    }))
   }
 
   async function handleFileChange(
@@ -249,46 +299,41 @@ export default function FormCr9CreatePage() {
                 </Field>
               )}
 
-              <Field
+              <SeamanAutocompleteField
                 id="seafarer_code"
                 label="Seafarer Code"
+                searchBy="seafarercode"
+                value={form.seafarer_code}
+                onChange={(v) => handleSeamanFieldChange("seafarer_code", v)}
+                onSelect={handleSeamanSelect}
+                placeholder="Cth: 20240118"
                 error={errors.seafarer_code}
-              >
-                <Input
-                  id="seafarer_code"
-                  placeholder="Cth: 20240118"
-                  value={form.seafarer_code}
-                  onChange={(e) =>
-                    handleChange("seafarer_code", e.target.value)
-                  }
-                />
-              </Field>
+                disabled={submitting}
+              />
 
-              <Field
+              <SeamanAutocompleteField
                 id="seaman_code"
                 label="Seaman Code"
+                searchBy="seamancode"
+                value={form.seaman_code}
+                onChange={(v) => handleSeamanFieldChange("seaman_code", v)}
+                onSelect={handleSeamanSelect}
+                placeholder="Cth: 20240118"
                 error={errors.seaman_code}
-              >
-                <Input
-                  id="seaman_code"
-                  placeholder="Cth: 20240118"
-                  value={form.seaman_code}
-                  onChange={(e) => handleChange("seaman_code", e.target.value)}
-                />
-              </Field>
+                disabled={submitting}
+              />
 
-              <Field
+              <SeamanAutocompleteField
                 id="seaman_name"
                 label="Seaman Name"
+                searchBy="name"
+                value={form.seaman_name}
+                onChange={(v) => handleSeamanFieldChange("seaman_name", v)}
+                onSelect={handleSeamanSelect}
+                placeholder="Nama lengkap seaman"
                 error={errors.seaman_name}
-              >
-                <Input
-                  id="seaman_name"
-                  placeholder="Nama lengkap seaman"
-                  value={form.seaman_name}
-                  onChange={(e) => handleChange("seaman_name", e.target.value)}
-                />
-              </Field>
+                disabled={submitting}
+              />
 
               <Field id="position" label="Jabatan" error={errors.position}>
                 <Input

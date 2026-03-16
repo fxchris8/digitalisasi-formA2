@@ -2,6 +2,7 @@ import { useEffect, useState } from "react"
 import { useNavigate, useParams } from "react-router"
 import { toast } from "sonner"
 import { getFormCr9, updateFormCr9 } from "@/api/form-cr9"
+import { SeamanAutocompleteField } from "@/components/form-cr9/seaman-autocomplete-field"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -15,6 +16,7 @@ import { Label } from "@/components/ui/label"
 import { getStorageUrl, uploadFile } from "@/lib/storage"
 import { ROUTES } from "@/routes/config"
 import type { FormCr9, UpdateFormCr9Payload } from "@/types/form-cr9"
+import type { Seaman } from "@/types/seaman"
 import { formCr9Schema } from "@/validations/form-cr9.validation"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -133,6 +135,29 @@ export default function FormCr9EditPage() {
     if (errors[field]) setErrors((prev) => ({ ...prev, [field]: undefined }))
   }
 
+  function handleSeamanSelect(seaman: Seaman) {
+    setForm((prev) =>
+      prev
+        ? {
+            ...prev,
+            seafarer_code: seaman.seafarercode ?? "",
+            seaman_code: seaman.seamancode,
+            seaman_name: seaman.name,
+            position: seaman.last_position ?? "",
+            ship: seaman.last_location ?? "",
+          }
+        : null,
+    )
+    setErrors((prev) => ({
+      ...prev,
+      seafarer_code: undefined,
+      seaman_code: undefined,
+      seaman_name: undefined,
+      position: undefined,
+      ship: undefined,
+    }))
+  }
+
   async function handleFileChange(
     e: React.ChangeEvent<HTMLInputElement>,
     folder: string,
@@ -224,43 +249,38 @@ export default function FormCr9EditPage() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-              <Field
+              <SeamanAutocompleteField
                 id="seafarer_code"
                 label="Seafarer Code"
+                searchBy="seafarercode"
+                value={form.seafarer_code}
+                onChange={(v) => handleChange("seafarer_code", v)}
+                onSelect={handleSeamanSelect}
                 error={errors.seafarer_code}
-              >
-                <Input
-                  id="seafarer_code"
-                  value={form.seafarer_code}
-                  onChange={(e) =>
-                    handleChange("seafarer_code", e.target.value)
-                  }
-                />
-              </Field>
+                disabled={submitting}
+              />
 
-              <Field
+              <SeamanAutocompleteField
                 id="seaman_code"
                 label="Seaman Code"
+                searchBy="seamancode"
+                value={form.seaman_code}
+                onChange={(v) => handleChange("seaman_code", v)}
+                onSelect={handleSeamanSelect}
                 error={errors.seaman_code}
-              >
-                <Input
-                  id="seaman_code"
-                  value={form.seaman_code}
-                  onChange={(e) => handleChange("seaman_code", e.target.value)}
-                />
-              </Field>
+                disabled={submitting}
+              />
 
-              <Field
+              <SeamanAutocompleteField
                 id="seaman_name"
                 label="Seaman Name"
+                searchBy="name"
+                value={form.seaman_name}
+                onChange={(v) => handleChange("seaman_name", v)}
+                onSelect={handleSeamanSelect}
                 error={errors.seaman_name}
-              >
-                <Input
-                  id="seaman_name"
-                  value={form.seaman_name}
-                  onChange={(e) => handleChange("seaman_name", e.target.value)}
-                />
-              </Field>
+                disabled={submitting}
+              />
 
               <Field id="position" label="Jabatan" error={errors.position}>
                 <Input
