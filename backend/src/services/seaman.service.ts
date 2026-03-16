@@ -54,6 +54,21 @@ async function fetchFromExternalApi(
 
 // ── Services ──────────────────────────────────────────────────────────────────
 
+/** Internal sync — dipakai oleh cron job, tanpa user auth check. */
+export async function syncSeamenInternal(): Promise<{ synced: number }> {
+  const rows = await fetchFromExternalApi({
+    age: 0,
+    status: "",
+    education: "",
+    experience: "",
+    certificate: "",
+    last_location: "",
+    last_position: "",
+  })
+  const synced = await repo.upsertBatch(rows)
+  return { synced }
+}
+
 export async function syncSeamen(
   user: JwtPayload,
   dto: SyncSeamenDto,
