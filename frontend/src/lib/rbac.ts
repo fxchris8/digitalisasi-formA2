@@ -29,6 +29,8 @@ export type Permission =
   | "view:approval"
   | "manage:approval"
   | "view:approval-log"
+  | "view:seaman"
+  | "manage:seaman"
 
 /**
  * Mapping role → permissions yang dimiliki.
@@ -44,6 +46,8 @@ const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     "view:form-a2",
     "manage:form-a2",
     "view:approval-log",
+    "view:seaman",
+    "manage:seaman",
   ],
   [ROLES.MANAGER]: [
     "view:dashboard",
