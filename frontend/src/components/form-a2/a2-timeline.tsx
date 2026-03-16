@@ -9,7 +9,7 @@ const APPROVAL_STEP_LABEL: Record<string, string> = {
   finance: "Review Finance",
 }
 
-const APPROVAL_STEPS = ["spm", "nautica", "finance"] as const
+const APPROVAL_STEPS = ["nautica", "spm", "finance"] as const
 
 function buildEntries(
   form: FormA2WithDetails,
@@ -32,7 +32,7 @@ function buildEntries(
   if (!cr9SubmittedAt) {
     entries.push({ title: "CR9 Diajukan ke SPM", status: "pending" })
     entries.push({ title: "Form A2 Dibuat oleh SPM", status: "pending" })
-    entries.push({ title: "A2 Diajukan ke Manager SPM", status: "pending" })
+    entries.push({ title: "A2 Diajukan ke Manager Nautica", status: "pending" })
     for (const step of APPROVAL_STEPS) {
       entries.push({ title: APPROVAL_STEP_LABEL[step], status: "pending" })
     }
@@ -56,7 +56,7 @@ function buildEntries(
 
   // 4. A2 Diajukan ke Manager
   if (!form.submitted_to_manager_at) {
-    entries.push({ title: "A2 Diajukan ke Manager SPM", status: "pending" })
+    entries.push({ title: "A2 Diajukan ke Manager Nautica", status: "pending" })
     for (const step of APPROVAL_STEPS) {
       entries.push({ title: APPROVAL_STEP_LABEL[step], status: "pending" })
     }
@@ -64,7 +64,7 @@ function buildEntries(
   }
 
   entries.push({
-    title: "A2 Diajukan ke Manager SPM",
+    title: "A2 Diajukan ke Manager Nautica",
     status: "done",
     timestamp: form.submitted_to_manager_at,
     actor: form.submitted_to_manager_name ?? null,
