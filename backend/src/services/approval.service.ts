@@ -73,9 +73,12 @@ export async function approveFormA2(
   const form = await repo.findById(id)
   assertFormPendingAtStep(form, step)
 
-  const resolvedNotes =
-    dto.notes?.trim() ||
-    `Pengajuan dokumen sudah diverifikasi. Pengajuan disetujui dengan ${dto.percentage}%`
+  const cr9Amount = Number(form?.cr9_amount ?? 0)
+  const approvedAmount = (cr9Amount * dto.percentage) / 100
+  const autoNotes = `Pengajuan dokumen sudah diverifikasi. Pengajuan disetujui dengan jumlah nominal Rp ${approvedAmount.toLocaleString("id-ID")} dari Rp ${cr9Amount.toLocaleString("id-ID")} (${dto.percentage}%)`
+  const resolvedNotes = dto.notes?.trim()
+    ? `${autoNotes}\n Keterangan: ${dto.notes.trim()}`
+    : autoNotes
   const updated = await repo.approve(
     id,
     step,
