@@ -28,7 +28,8 @@ async function schema(): Promise<void> {
           form_cr9,
           form_number_counter,
           seamen,
-          users
+          users,
+          branch_offices
         CASCADE
       `)
 
@@ -76,6 +77,16 @@ async function schema(): Promise<void> {
     `)
 
     // ── TABLES ──
+    await client.query(/* sql */ `
+      CREATE TABLE IF NOT EXISTS branch_offices (
+        id          UUID          PRIMARY KEY DEFAULT gen_random_uuid(),
+        province    VARCHAR(100)  NOT NULL,
+        city        VARCHAR(100)  NOT NULL UNIQUE,
+        created_at  TIMESTAMP     NOT NULL DEFAULT NOW(),
+        updated_at  TIMESTAMP     NOT NULL DEFAULT NOW()
+      )
+    `)
+
     await client.query(/* sql */ `
       CREATE TABLE IF NOT EXISTS users (
         id            UUID          PRIMARY KEY DEFAULT gen_random_uuid(),
