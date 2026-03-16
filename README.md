@@ -4,7 +4,7 @@
 
 </div>
 
-Aplikasi ini mengelola alur pengajuan dan persetujuan dokumen kesehatan awak kapal, mulai dari pembuatan Form CR9 dan Form A2, hingga proses approval bertahap oleh SPM, Nautica, dan Finance.
+Aplikasi ini mengelola alur pengajuan dan persetujuan dokumen kesehatan awak kapal, mulai dari pembuatan Form CR9 dan Form A2, hingga proses approval bertahap oleh Nautica, SPM, dan Finance. Data seaman disinkronkan secara otomatis dari sistem CITRIX (SPM) setiap hari pukul 05.00 WIB.
 
 ## Struktur Repositori
 
@@ -13,7 +13,7 @@ Monorepo dengan tiga komponen utama:
 | Komponen | Teknologi | Keterangan |
 |----------|-----------|------------|
 | **Database** | PostgreSQL | Tidak dikelola di repo ini — gunakan instance production atau lokal yang sudah ada |
-| **Backend** | Node.js, Express, TypeScript | REST API, autentikasi JWT, validasi Zod, upload file |
+| **Backend** | Node.js, Express, TypeScript | REST API, autentikasi JWT, validasi Zod, upload file, cron scheduler |
 | **Frontend** | React, TypeScript, Vite, TailwindCSS | SPA dengan role-based UI (Admin, Manager, Staff, User) |
 
 > Package manager yang digunakan: **pnpm**
@@ -39,7 +39,7 @@ pnpm install
 ```bash
 # Backend
 cp backend/.env.example backend/.env
-# Edit backend/.env — isi DATABASE_URL, JWT_SECRET, dll
+# Edit backend/.env — isi DATABASE_URL, JWT_SECRET, SEAMAN_API_URL, dll
 
 # Frontend
 cp frontend/.env.example frontend/.env
@@ -55,7 +55,7 @@ cd backend
 
 # Buat tabel (schema)
 pnpm db:schema
-pnpm db:schema-fresh (reset db dari awal)
+pnpm db:schema-fresh  # reset db dari awal
 
 # Isi data awal (seed)
 pnpm db:seed
@@ -102,6 +102,7 @@ Variabel yang wajib diisi:
 | `JWT_SECRET` | String acak minimal 32 karakter |
 | `TRAEFIK_NETWORK` | Nama network Traefik di VPS (cek: `docker network ls`) |
 | `VITE_API_URL` | Kosongkan jika FE dan BE satu domain; isi URL BE jika beda domain |
+| `SEAMAN_API_URL` | URL endpoint API CITRIX untuk sinkronisasi data seaman |
 
 **3. Build dan jalankan**
 
