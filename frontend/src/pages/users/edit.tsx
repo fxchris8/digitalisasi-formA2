@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react"
 import { useNavigate, useParams } from "react-router"
 import { toast } from "sonner"
-import { listBranchOffices } from "@/api/auth"
+import { listBranchOffices } from "@/api/branch-office"
 import { getUser, updateUser } from "@/api/users"
 import { Button } from "@/components/ui/button"
 import {
@@ -22,6 +22,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import type { BranchOffice } from "@/types/branch-office"
 import type { UserItem } from "@/types/user"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -99,15 +100,15 @@ export default function UsersEditPage() {
   const [form, setForm] = useState<FormState | null>(null)
   const [errors, setErrors] = useState<FormErrors>({})
   const [submitting, setSubmitting] = useState(false)
-  const [offices, setOffices] = useState<string[]>([])
+  const [offices, setOffices] = useState<BranchOffice[]>([])
   const [loadingUser, setLoadingUser] = useState(true)
 
   useEffect(() => {
     if (!id) return
-    Promise.all([getUser(id), listBranchOffices()])
+    Promise.all([getUser(id), listBranchOffices({ limit: 100 })])
       .then(([u, officeList]) => {
         setForm(userToForm(u))
-        setOffices(officeList)
+        setOffices(officeList.data)
       })
       .catch(() => toast.error("Gagal memuat data user"))
       .finally(() => setLoadingUser(false))
@@ -295,8 +296,8 @@ export default function UsersEditPage() {
                       <SelectGroup>
                         <SelectLabel>Kantor Cabang</SelectLabel>
                         {offices.map((o) => (
-                          <SelectItem key={o} value={o}>
-                            {o}
+                          <SelectItem key={o.id} value={o.city}>
+                            {o.city}
                           </SelectItem>
                         ))}
                       </SelectGroup>

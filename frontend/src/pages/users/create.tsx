@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react"
 import { useNavigate } from "react-router"
 import { toast } from "sonner"
-import { listBranchOffices } from "@/api/auth"
+import { listBranchOffices } from "@/api/branch-office"
 import { createUser } from "@/api/users"
 import { Button } from "@/components/ui/button"
 import {
@@ -23,6 +23,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { ROUTES } from "@/routes/config"
+import type { BranchOffice } from "@/types/branch-office"
 import type { CreateUserPayload } from "@/types/user"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -101,13 +102,13 @@ export default function UsersCreatePage() {
   const [form, setForm] = useState<FormState>(EMPTY_FORM)
   const [errors, setErrors] = useState<FormErrors>({})
   const [submitting, setSubmitting] = useState(false)
-  const [offices, setOffices] = useState<string[]>([])
+  const [offices, setOffices] = useState<BranchOffice[]>([])
 
   const showBranchSelect = form.department === "cabang"
 
   useEffect(() => {
-    listBranchOffices()
-      .then(setOffices)
+    listBranchOffices({ limit: 100 })
+      .then((res) => setOffices(res.data))
       .catch(() => toast.error("Gagal memuat daftar cabang"))
   }, [])
 
@@ -286,8 +287,8 @@ export default function UsersCreatePage() {
                       <SelectGroup>
                         <SelectLabel>Kantor Cabang</SelectLabel>
                         {offices.map((o) => (
-                          <SelectItem key={o} value={o}>
-                            {o}
+                          <SelectItem key={o.id} value={o.city}>
+                            {o.city}
                           </SelectItem>
                         ))}
                       </SelectGroup>
