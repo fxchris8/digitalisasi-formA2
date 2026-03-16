@@ -1,11 +1,11 @@
 import axios from "axios"
-import * as repo from "../repositories/seaman.repository"
-import { AppError } from "../utils/app-error"
-import type { JwtPayload } from "../utils/jwt"
+import * as repo from "@/repositories/seaman.repository"
+import type { JwtPayload } from "@/types/auth"
+import { AppError } from "@/utils/app-error"
 import type {
   ListSeamenQuery,
   SyncSeamenDto,
-} from "../validations/seaman.validation"
+} from "@/validations/seaman.validation"
 
 // ── External API ──────────────────────────────────────────────────────────────
 
@@ -71,9 +71,9 @@ export async function listSeamen(params: ListSeamenQuery) {
   const { page, limit, search, status, fleet } = params
   const offset = (page - 1) * limit
   const { rows, total } = await repo.findAll({
-    search,
-    status,
-    fleet,
+    ...(search && { search }),
+    ...(status && { status }),
+    ...(fleet && { fleet }),
     limit,
     offset,
   })
