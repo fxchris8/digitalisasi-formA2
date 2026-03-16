@@ -313,7 +313,7 @@ export async function removeDetail(detailId: string): Promise<boolean> {
 
 // ── Status transitions ────────────────────────────────────────────────────────
 
-/** Staff SPM submit A2 ke approval chain: draft → pending, current_step = spm */
+/** Staff SPM submit A2 ke approval chain: draft → pending, current_step = nautica */
 export async function submitToManager(
   id: string,
   userId: string,
@@ -323,7 +323,7 @@ export async function submitToManager(
       UPDATE form_a2
       SET
         status = 'pending',
-        current_step = 'spm',
+        current_step = 'nautica',
         submitted_to_manager_at = NOW(),
         submitted_to_manager_by = $2,
         updated_at = NOW()
@@ -338,8 +338,8 @@ export async function submitToManager(
 // ── Approval actions ───────────────────────────────────────────────────────────
 
 const NEXT_STEP: Record<ApprovalStep, string> = {
-  spm: `current_step = 'nautica'`,
-  nautica: `current_step = 'finance'`,
+  nautica: `current_step = 'spm'`,
+  spm: `current_step = 'finance'`,
   finance: `status = 'approved', current_step = NULL`,
 }
 

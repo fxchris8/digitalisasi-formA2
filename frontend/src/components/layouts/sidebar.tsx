@@ -4,6 +4,7 @@ import {
   FileText,
   LayoutDashboard,
   ScrollText,
+  Ship,
   Users,
 } from "lucide-react"
 import { NavLink } from "react-router"
@@ -31,6 +32,12 @@ const NAV_ITEMS: NavItem[] = [
     icon: Users,
     path: ROUTES.users.path,
     permission: "view:users",
+  },
+  {
+    label: ROUTES.seaman.label,
+    icon: Ship,
+    path: ROUTES.seaman.path,
+    permission: "view:seaman",
   },
   {
     label: ROUTES.formCr9.label,

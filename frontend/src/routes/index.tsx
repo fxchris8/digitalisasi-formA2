@@ -20,6 +20,7 @@ import FormCr9Page from "@/pages/form-cr9"
 import FormCr9CreatePage from "@/pages/form-cr9/create"
 import FormCr9DetailPage from "@/pages/form-cr9/detail"
 import FormCr9EditPage from "@/pages/form-cr9/edit"
+import SeamanPage from "@/pages/seaman"
 import UsersPage from "@/pages/users"
 import UsersCreatePage from "@/pages/users/create"
 import UsersDetailPage from "@/pages/users/detail"
@@ -126,6 +127,12 @@ export const router = createBrowserRouter([
             children: [
               { path: ROUTES.approvalLog.path, element: <ApprovalLogPage /> },
             ],
+          },
+
+          // Hanya admin: kelola seaman
+          {
+            element: <RoleGuard requiredPermission="view:seaman" />,
+            children: [{ path: ROUTES.seaman.path, element: <SeamanPage /> }],
           },
 
           {

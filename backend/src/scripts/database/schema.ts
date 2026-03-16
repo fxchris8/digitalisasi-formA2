@@ -27,6 +27,7 @@ async function schema(): Promise<void> {
           form_a2,
           form_cr9,
           form_number_counter,
+          seamen,
           users
         CASCADE
       `)
@@ -87,6 +88,41 @@ async function schema(): Promise<void> {
         branch_office VARCHAR(100),           -- diisi jika user dari kantor cabang
         created_at    TIMESTAMP     NOT NULL DEFAULT NOW(),
         updated_at    TIMESTAMP     NOT NULL DEFAULT NOW()
+      )
+    `)
+
+    // Data seamen yang disinkronkan dari API eksternal SPM.
+    await client.query(/* sql */ `
+      CREATE TABLE IF NOT EXISTS seamen (
+        seamancode          VARCHAR(50)   PRIMARY KEY,
+        seafarercode        VARCHAR(50),
+        name                VARCHAR(255)  NOT NULL,
+        gender              VARCHAR(20),
+        birthdate           VARCHAR(20),            -- format DD/MM/YYYY dari API
+        birthplace          VARCHAR(100),
+        age                 INTEGER,
+        edu_level           VARCHAR(50),
+        certificate         VARCHAR(100),
+        experience          VARCHAR(50),
+        fleet               VARCHAR(10),
+        is_active_employee  VARCHAR(5),             -- 'YES' | 'NO'
+        status              VARCHAR(100),           -- 'ON BOARD' | dll.
+        start_date          VARCHAR(20),            -- format DD/MM/YYYY
+        end_date            VARCHAR(20),            -- format DD/MM/YYYY
+        day_elapsed         INTEGER,
+        day_remains         INTEGER,
+        last_position       VARCHAR(100),
+        last_location       VARCHAR(255),
+        last_vesselid       VARCHAR(50),
+        prevposition        VARCHAR(100),
+        prevlocation        VARCHAR(255),
+        pic_crewing         VARCHAR(255),
+        phone_number_1      VARCHAR(30),
+        phone_number_2      VARCHAR(30),
+        phone_number_3      VARCHAR(30),
+        phone_number_4      VARCHAR(30),
+        synced_at           TIMESTAMP     NOT NULL DEFAULT NOW(),
+        updated_at          TIMESTAMP     NOT NULL DEFAULT NOW()
       )
     `)
 

@@ -132,7 +132,7 @@ export async function submitFormA2Handler(
     }
     const id = req.params.id as string
     const result = await formA2Service.submitFormA2ToManager(req.user, id)
-    sendSuccess(res, "Form A2 berhasil diajukan ke manager SPM", result)
+    sendSuccess(res, "Form A2 berhasil diajukan ke manager Nautica", result)
   } catch (err) {
     next(err)
   }

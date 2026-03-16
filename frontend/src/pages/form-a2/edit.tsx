@@ -18,6 +18,7 @@ import {
 import { InfoRow } from "@/components/ui/info-row"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import {
   Table,
   TableBody,
@@ -458,18 +459,28 @@ export default function FormA2EditPage() {
                 />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="detail-category">Kategori RS</Label>
-                <Input
-                  id="detail-category"
-                  placeholder="Contoh: Swasta, Tipe A, Klinik, dll."
+                <Label>Kategori RS</Label>
+                <RadioGroup
                   value={newDetail.hospital_category}
-                  onChange={(e) =>
+                  onValueChange={(val) =>
                     setNewDetail((prev) => ({
                       ...prev,
-                      hospital_category: e.target.value,
+                      hospital_category: val,
                     }))
                   }
-                />
+                  className="flex gap-6 pt-1"
+                >
+                  {["Swasta", "Pemerintah"].map((cat) => (
+                    <label
+                      key={cat}
+                      htmlFor={`cat-${cat}`}
+                      className="flex items-center gap-2 cursor-pointer text-sm"
+                    >
+                      <RadioGroupItem value={cat} id={`cat-${cat}`} />
+                      {cat}
+                    </label>
+                  ))}
+                </RadioGroup>
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="detail-amount">Jumlah (Rp)</Label>

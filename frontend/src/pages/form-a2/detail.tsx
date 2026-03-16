@@ -103,7 +103,7 @@ export default function FormA2DetailPage() {
     try {
       await submitFormA2(id)
       setConfirmOpen(false)
-      toast.success("Form A2 berhasil diajukan ke Manager SPM")
+      toast.success("Form A2 berhasil diajukan ke Manager Nautica")
       const updated = await getFormA2(id)
       setForm(updated)
     } catch (err) {
@@ -159,7 +159,7 @@ export default function FormA2DetailPage() {
               disabled={submitting}
               onClick={() => setConfirmOpen(true)}
             >
-              Ajukan ke Manager SPM
+              Ajukan ke Manager Nautica
             </Button>
           )}
         </div>

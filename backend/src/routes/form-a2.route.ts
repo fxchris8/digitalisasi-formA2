@@ -36,7 +36,7 @@ router.delete(
   removeDetailHandler,
 )
 
-// POST /api/form-a2/:id/submit             — ajukan ke manager SPM (staff spm & admin)
+// POST /api/form-a2/:id/submit             — ajukan ke manager Nautica (staff spm & admin)
 router.post("/:id/submit", authorize("admin", "staff"), submitFormA2Handler)
 
 export { router as formA2Router }
