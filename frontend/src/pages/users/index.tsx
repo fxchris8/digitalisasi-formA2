@@ -193,7 +193,9 @@ export default function UsersPage() {
                   <TableCell className="text-center text-muted-foreground">
                     {startIdx + index + 1}
                   </TableCell>
-                  <TableCell className="font-medium">{u.full_name}</TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {u.full_name}
+                  </TableCell>
                   <TableCell className="text-muted-foreground">
                     {u.username}
                   </TableCell>
