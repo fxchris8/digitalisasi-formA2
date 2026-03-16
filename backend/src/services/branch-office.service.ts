@@ -12,8 +12,8 @@ export async function listBranchOffices(dto: ListBranchOfficeDto) {
   const offset = (page - 1) * limit
 
   const { rows, total } = await repo.findAll({
-    province: dto.province,
-    city: dto.city,
+    ...(dto.province && { province: dto.province }),
+    ...(dto.city && { city: dto.city }),
     limit,
     offset,
   })
@@ -44,7 +44,10 @@ export async function updateBranchOffice(
   const office = await repo.findById(id)
   if (!office) throw new AppError("Cabang tidak ditemukan", 404, "NOT_FOUND")
 
-  const updated = await repo.update(id, dto)
+  const updated = await repo.update(id, {
+    ...(dto.province !== undefined && { province: dto.province }),
+    ...(dto.city !== undefined && { city: dto.city }),
+  })
   if (!updated)
     throw new AppError("Gagal memperbarui cabang", 500, "INTERNAL_SERVER_ERROR")
   return updated
