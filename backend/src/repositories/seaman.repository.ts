@@ -170,7 +170,9 @@ export async function findAll(params: {
   let idx = 1
 
   if (params.search) {
-    conditions.push(`(LOWER(name) LIKE $${idx} OR seamancode LIKE $${idx})`)
+    conditions.push(
+      `(LOWER(name) LIKE $${idx} OR seamancode LIKE $${idx} OR LOWER(COALESCE(seafarercode, '')) LIKE $${idx})`,
+    )
     values.push(`%${params.search.toLowerCase()}%`)
     idx++
   }
