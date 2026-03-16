@@ -1,4 +1,5 @@
 import {
+  Building2,
   ClipboardCheck,
   ClipboardList,
   FileText,
@@ -38,6 +39,12 @@ const NAV_ITEMS: NavItem[] = [
     icon: Ship,
     path: ROUTES.seaman.path,
     permission: "view:seaman",
+  },
+  {
+    label: ROUTES.branchOffice.label,
+    icon: Building2,
+    path: ROUTES.branchOffice.path,
+    permission: "manage:branch-offices",
   },
   {
     label: ROUTES.formCr9.label,
