@@ -1,5 +1,5 @@
-import pool from "../config/database"
-import type { Seaman } from "../models/seaman.model"
+import pool from "@/config/database"
+import type { Seaman } from "@/models/seaman.model"
 
 // ── Raw shape returned by the external API ────────────────────────────────────
 

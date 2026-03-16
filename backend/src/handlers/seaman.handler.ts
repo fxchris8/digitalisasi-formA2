@@ -1,11 +1,11 @@
 import type { NextFunction, Request, Response } from "express"
-import * as service from "../services/seaman.service"
-import { AppError } from "../utils/app-error"
-import { sendSuccess } from "../utils/response"
+import * as service from "@/services/seaman.service"
+import { AppError } from "@/utils/app-error"
+import { sendSuccess } from "@/utils/response"
 import {
   listSeamenSchema,
   syncSeamenSchema,
-} from "../validations/seaman.validation"
+} from "@/validations/seaman.validation"
 
 export async function syncSeamenHandler(
   req: Request,
