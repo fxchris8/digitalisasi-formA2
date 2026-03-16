@@ -167,7 +167,7 @@ export default function FormA2Page() {
     try {
       await submitFormA2(submitTarget.id)
       setSubmitTarget(null)
-      toast.success("Form A2 berhasil diajukan ke Manager SPM")
+      toast.success("Form A2 berhasil diajukan ke Manager Nautica")
       fetchForms()
     } catch (err) {
       toast.error(
@@ -363,7 +363,7 @@ export default function FormA2Page() {
                           form.status === "revision") && (
                           <Button
                             size="xs"
-                            title="Ajukan ke Manager SPM"
+                            title="Ajukan ke Manager Nautica"
                             className="text-white text-[10px] bg-green-600 hover:bg-green-700"
                             onClick={() => setSubmitTarget(form)}
                           >
