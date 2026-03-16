@@ -19,6 +19,7 @@ export const ROUTES = {
   approval: { path: "/approval", label: "Approval" },
   approvalDetail: { path: "/approval/:id", label: "Cek Pengajuan" },
   approvalLog: { path: "/approval-log", label: "Approval Log" },
+  seaman: { path: "/seaman", label: "Kelola Seaman" },
   forbidden: { path: "/403", label: "Akses Ditolak" },
 } as const
 
