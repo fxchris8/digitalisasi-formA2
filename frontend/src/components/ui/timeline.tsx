@@ -104,7 +104,9 @@ function TimelineItem({
         )}
 
         {!isPending && entry.notes && (
-          <p className="mt-0.5 text-xs text-muted-foreground">{entry.notes}</p>
+          <p className="mt-0.5 whitespace-pre-line text-xs text-muted-foreground">
+            {entry.notes}
+          </p>
         )}
       </div>
     </div>

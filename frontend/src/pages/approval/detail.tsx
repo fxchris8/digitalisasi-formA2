@@ -29,6 +29,7 @@ import { FileCard } from "@/components/ui/file-card"
 import { InfoRow } from "@/components/ui/info-row"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import {
   Table,
   TableBody,
@@ -81,7 +82,10 @@ export default function ApprovalDetailPage() {
   const [revisionOpen, setRevisionOpen] = useState(false)
   const [rejectOpen, setRejectOpen] = useState(false)
   const [actionNotes, setActionNotes] = useState("")
-  const [actionPercentage, setActionPercentage] = useState("")
+  const [actionPercentage, setActionPercentage] = useState("100")
+  const [percentagePreset, setPercentagePreset] = useState<
+    "50" | "100" | "custom"
+  >("100")
   const [acting, setActing] = useState(false)
 
   const myStep = user ? getManagerStep(user) : null
@@ -111,11 +115,23 @@ export default function ApprovalDetailPage() {
   const pctValid =
     actionPercentage !== "" && !Number.isNaN(pct) && pct >= 0 && pct <= 100
 
+  const cr9Amount = Number(form?.cr9_amount ?? 0)
+  const approvedAmount = pctValid ? (cr9Amount * pct) / 100 : null
+
+  function handlePresetChange(val: "50" | "100" | "custom") {
+    setPercentagePreset(val)
+    if (val !== "custom") setActionPercentage(val)
+    else setActionPercentage("")
+  }
+
   async function handleApprove() {
     if (!id || !pctValid) return
     setActing(true)
     try {
-      await approveFormA2(id, { percentage: pct })
+      await approveFormA2(id, {
+        percentage: pct,
+        notes: actionNotes || undefined,
+      })
       setApproveOpen(false)
       toast.success("Form A2 berhasil disetujui")
       navigate("/approval")
@@ -385,7 +401,8 @@ export default function ApprovalDetailPage() {
           size="lg"
           className="bg-green-600 hover:bg-green-700 text-white"
           onClick={() => {
-            setActionPercentage("")
+            setPercentagePreset("100")
+            setActionPercentage("100")
             setApproveOpen(true)
           }}
         >
@@ -405,24 +422,61 @@ export default function ApprovalDetailPage() {
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="approve-percentage">
+              <Label>
                 Persentase <span className="text-red-500">*</span>
               </Label>
-              <Input
-                id="approve-percentage"
-                type="number"
-                min={0}
-                max={100}
-                placeholder="0 – 100"
-                value={actionPercentage}
-                onChange={(e) => setActionPercentage(e.target.value)}
-              />
+              <RadioGroup
+                value={percentagePreset}
+                onValueChange={(v) =>
+                  handlePresetChange(v as "50" | "100" | "custom")
+                }
+                className="flex gap-5"
+              >
+                {(["50", "100"] as const).map((v) => (
+                  <label
+                    key={v}
+                    htmlFor={`pct-${v}`}
+                    className="flex items-center gap-2 cursor-pointer text-sm"
+                  >
+                    <RadioGroupItem value={v} id={`pct-${v}`} />
+                    {v}%
+                  </label>
+                ))}
+                <label
+                  htmlFor="pct-custom"
+                  className="flex items-center gap-2 cursor-pointer text-sm"
+                >
+                  <RadioGroupItem value="custom" id="pct-custom" />
+                  Custom
+                </label>
+              </RadioGroup>
+              {percentagePreset === "custom" && (
+                <Input
+                  type="number"
+                  min={0}
+                  max={100}
+                  placeholder="0 – 100"
+                  value={actionPercentage}
+                  onChange={(e) => setActionPercentage(e.target.value)}
+                />
+              )}
+              {approvedAmount !== null && (
+                <div className="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-700">
+                  Jumlah disetujui:{" "}
+                  <span className="font-semibold font-mono">
+                    {formatRupiah(approvedAmount)}
+                  </span>{" "}
+                  <span className="text-blue-500">
+                    dari {formatRupiah(cr9Amount)}
+                  </span>
+                </div>
+              )}
             </div>
             <div className="space-y-2">
               <Label htmlFor="approve-notes">Catatan</Label>
               <Textarea
                 id="approve-notes"
-                placeholder={`Catatan bersifat opsional.`}
+                placeholder="Catatan bersifat opsional."
                 rows={3}
                 value={actionNotes}
                 onChange={(e) => setActionNotes(e.target.value)}

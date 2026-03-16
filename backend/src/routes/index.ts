@@ -1,6 +1,7 @@
 import { Router } from "express"
 import { approvalRouter } from "./approval.route"
 import { authRouter } from "./auth.route"
+import { branchOfficeRouter } from "./branch-office.route"
 import { dashboardRouter } from "./dashboard.route"
 import { formA2Router } from "./form-a2.route"
 import { formCr9Router } from "./form-cr9.route"
@@ -23,5 +24,6 @@ router.use("/api/form-a2", formA2Router)
 router.use("/api/approval", approvalRouter)
 router.use("/api/dashboard", dashboardRouter)
 router.use("/api/seamen", seamanRouter)
+router.use("/api/branch-offices", branchOfficeRouter)
 
 export { router as apiRouter }

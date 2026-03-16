@@ -10,6 +10,9 @@ import ApprovalPage from "@/pages/approval"
 import ApprovalDetailPage from "@/pages/approval/detail"
 import ApprovalLogPage from "@/pages/approval-log"
 import LoginPage from "@/pages/auth/login"
+import BranchOfficePage from "@/pages/branch-office"
+import BranchOfficeCreatePage from "@/pages/branch-office/create"
+import BranchOfficeEditPage from "@/pages/branch-office/edit"
 import DashboardPage from "@/pages/dashboard"
 import ForbiddenPage from "@/pages/forbidden"
 import FormA2Page from "@/pages/form-a2"
@@ -133,6 +136,22 @@ export const router = createBrowserRouter([
           {
             element: <RoleGuard requiredPermission="view:seaman" />,
             children: [{ path: ROUTES.seaman.path, element: <SeamanPage /> }],
+          },
+
+          // Hanya admin: kelola kantor cabang
+          {
+            element: <RoleGuard requiredPermission="manage:branch-offices" />,
+            children: [
+              { path: ROUTES.branchOffice.path, element: <BranchOfficePage /> },
+              {
+                path: ROUTES.branchOfficeCreate.path,
+                element: <BranchOfficeCreatePage />,
+              },
+              {
+                path: ROUTES.branchOfficeEdit.path,
+                element: <BranchOfficeEditPage />,
+              },
+            ],
           },
 
           {

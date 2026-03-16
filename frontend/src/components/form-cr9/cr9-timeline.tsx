@@ -90,7 +90,7 @@ function buildEntries(
       timestamp: log.actioned_at,
       actor: log.actioner_name,
       notes: log.notes,
-      extra: log.percentage ? `Persentase: ${log.percentage}%` : null,
+      extra: log.percentage ? `Persentase: ${Number(log.percentage)}%` : null,
     })
   }
 
