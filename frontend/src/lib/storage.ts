@@ -10,12 +10,12 @@ import { unwrap } from "./api-utils"
  * @returns      The stored path relative to the storage root, e.g. "cr9/uuid.pdf".
  *               Pass this value directly to API payloads.
  */
-export const MAX_FILE_SIZE = 3 * 1024 * 1024 // 3 MB
+export const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10 MB — nota/kwitansi hasil foto/scan sering lebih besar dari 3MB
 
 export async function uploadFile(file: File, folder: string): Promise<string> {
   if (file.size > MAX_FILE_SIZE) {
     throw new Error(
-      `Ukuran file maksimal 3 MB (file ini ${(file.size / 1024 / 1024).toFixed(1)} MB)`,
+      `Ukuran file maksimal ${MAX_FILE_SIZE / 1024 / 1024} MB (file ini ${(file.size / 1024 / 1024).toFixed(1)} MB)`,
     )
   }
 

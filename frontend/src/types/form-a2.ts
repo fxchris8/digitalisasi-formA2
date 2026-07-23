@@ -1,3 +1,5 @@
+import type { HospitalCategory } from "@/types/hospital"
+
 export type FormA2Status =
   | "draft"
   | "submitted"
@@ -8,15 +10,33 @@ export type FormA2Status =
 
 export type ApprovalStep = "spm" | "nautica" | "finance"
 export type ApprovalStatus = "pending" | "approved" | "revision" | "rejected"
+export type RevisionTargetRole = "staff_cabang" | "staff_spm"
+
+export interface FormA2Revision {
+  id: string
+  form_a2_id: string
+  step: ApprovalStep
+  target_role: RevisionTargetRole
+  requested_by: string
+  requested_at: string
+  notes: string | null
+  resolved_by: string | null
+  resolved_at: string | null
+  is_resolved: boolean
+}
 
 export interface FormA2Detail {
   id: string
   form_a2_id: string
   description: string
-  hospital_name: string
-  hospital_category: string
+  hospital_id: string
   amount: string
   created_at: string
+  // hasil JOIN ke hospitals — sama untuk semua baris dalam 1 form
+  hospital_name: string
+  hospital_category: HospitalCategory
+  hospital_province: string
+  hospital_city: string
 }
 
 export interface FormA2ApprovalLog {
@@ -64,18 +84,11 @@ export interface FormA2 {
 export interface FormA2WithDetails extends FormA2 {
   details: FormA2Detail[]
   approval_logs: FormA2ApprovalLog[]
+  active_revision: FormA2Revision | null
 }
 
 export interface UpdateFormA2Payload {
-  diagnosis?: string
   news_url?: string
-}
-
-export interface AddDetailPayload {
-  description: string
-  hospital_name: string
-  hospital_category: string
-  amount: number
 }
 
 export interface FormA2ListParams {
@@ -94,6 +107,7 @@ export interface ApprovePayload {
 
 export interface RevisionPayload {
   notes: string
+  target: RevisionTargetRole
 }
 
 export interface RejectPayload {

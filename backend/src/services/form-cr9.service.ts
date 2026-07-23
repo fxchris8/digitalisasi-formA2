@@ -34,20 +34,6 @@ function getBranchFilter(user: JwtPayload): string | null {
   return user.branch_office ?? "NONE"
 }
 
-/**
- * Format: CR9/{branchOffice}/{seq:04d}/{month:02d}/{year}
- */
-function buildFormNumber(
-  branchOffice: string,
-  seq: number,
-  month: number,
-  year: number,
-): string {
-  const s = String(seq).padStart(4, "0")
-  const m = String(month).padStart(2, "0")
-  return `CR9/${branchOffice}/${s}/${m}/${year}`
-}
-
 // ── Service ───────────────────────────────────────────────────────────────────
 
 export async function listFormCr9(user: JwtPayload, query: ListFormCr9Query) {
@@ -103,28 +89,25 @@ export async function createFormCr9(user: JwtPayload, dto: CreateFormCr9Dto) {
   const year = now.getFullYear()
   const branchOffice = dto.branch_office ?? resolveBranchOffice(user)
 
-  const seq = await repo.nextSeqNumber(branchOffice, year)
-  if (seq === null)
-    throw new AppError(
-      "Gagal generate nomor urut form",
-      500,
-      "INTERNAL_SERVER_ERROR",
-    )
-
-  const formNumber = buildFormNumber(branchOffice, seq, month, year)
-
-  const form = await repo.create(
-    user.id,
+  const { cr9, a2 } = await a2Repo.createCr9AndA2({
+    createdBy: user.id,
     branchOffice,
-    seq,
     month,
     year,
-    formNumber,
-    dto,
-  )
-  if (!form)
-    throw new AppError("Gagal membuat Form CR9", 500, "INTERNAL_SERVER_ERROR")
-  return form
+    seafarerCode: dto.seafarer_code,
+    seamanCode: dto.seaman_code,
+    seamanName: dto.seaman_name,
+    position: dto.position,
+    ship: dto.ship,
+    complaint: dto.complaint,
+    cr9Url: dto.cr9_url,
+    receiptUrl: dto.receipt_url,
+    diagnosis: dto.diagnosis,
+    hospitalId: dto.hospital_id,
+    details: dto.details,
+  })
+
+  return { ...cr9, form_a2_id: a2.id }
 }
 
 export async function updateFormCr9(
@@ -159,6 +142,27 @@ export async function updateFormCr9(
     throw new AppError("Akses ditolak", 403, "FORBIDDEN")
   }
 
+  const linkedA2 = await a2Repo.findByCr9Id(id)
+
+  // Setelah CR9 diajukan, data hanya boleh diubah lagi kalau Form A2 terkait
+  // sedang direvisi DAN revisinya ditujukan ke staff cabang (data kelengkapan).
+  // Selain itu, data sudah "terkunci" untuk cabang selama proses approval berjalan.
+  if (form.status !== "draft" && user.role !== "admin") {
+    const activeRevision = linkedA2
+      ? await a2Repo.findActiveRevision(linkedA2.id)
+      : null
+    const canEditDuringRevision =
+      linkedA2?.status === "revision" &&
+      activeRevision?.target_role === "staff_cabang"
+    if (!canEditDuringRevision) {
+      throw new AppError(
+        "Form CR9 hanya bisa diubah saat draft, atau saat sedang direvisi (data kelengkapan)",
+        422,
+        "UNPROCESSABLE",
+      )
+    }
+  }
+
   const updated = await repo.update(id, dto, user.id)
   if (!updated)
     throw new AppError(
@@ -166,7 +170,56 @@ export async function updateFormCr9(
       500,
       "INTERNAL_SERVER_ERROR",
     )
-  return updated
+
+  // Diagnosis & rincian biaya disimpan di Form A2 terkait, bukan di form_cr9.
+  if (
+    dto.diagnosis !== undefined ||
+    dto.details !== undefined ||
+    dto.hospital_id !== undefined
+  ) {
+    await a2Repo.replaceCr9DetailsAndDiagnosis({
+      cr9Id: id,
+      diagnosis: dto.diagnosis,
+      hospitalId: dto.hospital_id,
+      details: dto.details,
+    })
+  }
+
+  // Kalau cabang baru saja memperbaiki data untuk revisi yang ditujukan ke
+  // mereka, otomatis selesaikan revisinya — cabang tidak perlu tombol submit
+  // terpisah. Dua kemungkinan tujuan setelah diperbaiki:
+  // - Revisi pra-chain (diminta staff SPM sebelum form pernah diajukan ke
+  //   manager) → kembali ke 'draft', staff SPM review ulang & submit normal.
+  // - Revisi dalam approval chain (diminta Nautica/SPM-manager/Finance)
+  //   → langsung diajukan ulang ke step yang minta revisi tadi.
+  if (linkedA2?.status === "revision") {
+    const activeRevision = await a2Repo.findActiveRevision(linkedA2.id)
+    if (activeRevision?.target_role === "staff_cabang") {
+      if (linkedA2.submitted_to_manager_at) {
+        await a2Repo.resolveRevisionAndResubmit(
+          linkedA2.id,
+          activeRevision.id,
+          activeRevision.step,
+          user.id,
+        )
+      } else {
+        await a2Repo.resolvePreChainRevision(
+          linkedA2.id,
+          activeRevision.id,
+          user.id,
+        )
+      }
+    }
+  }
+
+  const result = await repo.findById(id)
+  if (!result)
+    throw new AppError(
+      "Gagal mengupdate Form CR9",
+      500,
+      "INTERNAL_SERVER_ERROR",
+    )
+  return result
 }
 
 export async function submitFormCr9(user: JwtPayload, id: string) {
@@ -196,16 +249,15 @@ export async function submitFormCr9(user: JwtPayload, id: string) {
     throw new AppError("Akses ditolak", 403, "FORBIDDEN")
   }
 
-  const now = new Date()
-  const { cr9, a2 } = await a2Repo.submitCr9AndCreateA2({
-    cr9Id: id,
-    createdBy: user.id,
-    diagnosis: form.complaint, // initial value dari complaint CR9
-    month: now.getMonth() + 1,
-    year: now.getFullYear(),
-  })
-
-  return { cr9, a2 }
+  const result = await repo.submitCr9(id)
+  if (!result) {
+    throw new AppError(
+      "Gagal mengajukan Form CR9",
+      500,
+      "INTERNAL_SERVER_ERROR",
+    )
+  }
+  return result
 }
 
 export async function deleteFormCr9(user: JwtPayload, id: string) {

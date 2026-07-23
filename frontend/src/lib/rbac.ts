@@ -26,13 +26,15 @@ export type Permission =
   | "manage:form-cr9"
   | "view:form-a2"
   | "manage:form-a2"
-  | "view:approval"
-  | "manage:approval"
   | "view:approval-log"
   | "view:seaman"
   | "manage:seaman"
   | "view:branch-offices"
   | "manage:branch-offices"
+  | "view:hospitals"
+  | "manage:hospitals"
+  | "view:ships"
+  | "manage:ships"
 
 /**
  * Mapping role → permissions yang dimiliki.
@@ -52,14 +54,16 @@ const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     "manage:seaman",
     "view:branch-offices",
     "manage:branch-offices",
+    "view:hospitals",
+    "manage:hospitals",
+    "view:ships",
+    "manage:ships",
   ],
   [ROLES.MANAGER]: [
     "view:dashboard",
     "view:form-cr9",
     "view:form-a2",
     "manage:form-a2",
-    "view:approval",
-    "manage:approval",
   ],
   [ROLES.STAFF]: [
     "view:dashboard",
@@ -76,12 +80,7 @@ const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
  * terlepas dari role.
  */
 const DEPARTMENT_PERMISSIONS: Record<string, Permission[]> = {
-  finance: [
-    "view:form-cr9",
-    "view:form-a2",
-    "view:approval",
-    "manage:approval",
-  ],
+  finance: ["view:form-cr9", "view:form-a2"],
 }
 
 /**

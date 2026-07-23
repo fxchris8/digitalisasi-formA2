@@ -1,32 +1,6 @@
 import pool from "@/config/database"
 import type { FormCr9, FormCr9WithCreator } from "@/models/form-cr9.model"
-import type {
-  CreateFormCr9Dto,
-  UpdateFormCr9Dto,
-} from "@/validations/form-cr9.validation"
-
-// ── Counter & Form Number ─────────────────────────────────────────────────────
-
-/**
- * Atomically increment counter dan kembalikan seq number baru.
- * Menggunakan INSERT ... ON CONFLICT untuk keamanan concurrent request.
- */
-export async function nextSeqNumber(
-  branchOffice: string,
-  year: number,
-): Promise<number | null> {
-  const result = await pool.query<{ last_seq: number }>(
-    /* sql */ `
-      INSERT INTO form_number_counter (form_type, branch_office, year, last_seq)
-      VALUES ('CR9', $1, $2, 1)
-      ON CONFLICT (form_type, branch_office, year)
-      DO UPDATE SET last_seq = form_number_counter.last_seq + 1
-      RETURNING last_seq
-    `,
-    [branchOffice, year],
-  )
-  return result.rows[0]?.last_seq ?? null
-}
+import type { UpdateFormCr9Dto } from "@/validations/form-cr9.validation"
 
 // ── CRUD ──────────────────────────────────────────────────────────────────────
 
@@ -87,9 +61,18 @@ export async function findAll(params: {
     /* sql */ `
       SELECT
         f.*,
-        u.full_name AS creator_name
+        u.full_name AS creator_name,
+        a.id AS form_a2_id,
+        a.status AS a2_status,
+        rev.id IS NOT NULL AS needs_cabang_revision,
+        rev.notes AS revision_notes
       FROM form_cr9 f
       JOIN users u ON u.id = f.created_by
+      LEFT JOIN form_a2 a ON a.form_cr9_id = f.id
+      LEFT JOIN form_a2_revision rev
+        ON rev.form_a2_id = a.id
+        AND rev.is_resolved = FALSE
+        AND rev.target_role = 'staff_cabang'
       ${where}
       ORDER BY f.created_at DESC
       LIMIT $${idx++} OFFSET $${idx++}
@@ -103,9 +86,20 @@ export async function findAll(params: {
 export async function findById(id: string): Promise<FormCr9WithCreator | null> {
   const result = await pool.query<FormCr9WithCreator>(
     /* sql */ `
-      SELECT f.*, u.full_name AS creator_name
+      SELECT
+        f.*,
+        u.full_name AS creator_name,
+        a.id AS form_a2_id,
+        a.status AS a2_status,
+        rev.id IS NOT NULL AS needs_cabang_revision,
+        rev.notes AS revision_notes
       FROM form_cr9 f
       JOIN users u ON u.id = f.created_by
+      LEFT JOIN form_a2 a ON a.form_cr9_id = f.id
+      LEFT JOIN form_a2_revision rev
+        ON rev.form_a2_id = a.id
+        AND rev.is_resolved = FALSE
+        AND rev.target_role = 'staff_cabang'
       WHERE f.id = $1
       LIMIT 1
     `,
@@ -114,48 +108,56 @@ export async function findById(id: string): Promise<FormCr9WithCreator | null> {
   return result.rows[0] ?? null
 }
 
-export async function create(
-  createdBy: string,
-  branchOffice: string,
-  seqNumber: number,
-  month: number,
-  year: number,
-  formNumber: string,
-  dto: CreateFormCr9Dto,
-): Promise<FormCr9 | null> {
-  const result = await pool.query<FormCr9>(
-    /* sql */ `
-      INSERT INTO form_cr9 (
-        created_by, branch_office, seq_number, month, year, form_number,
-        seafarer_code, seaman_code, seaman_name, position, ship,
-        complaint,
-        cr9_url, cr9_url_added_by, cr9_url_added_at,
-        receipt_url, receipt_url_added_by, receipt_url_added_at,
-        amount
-      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,NOW(),$15,$16,NOW(),$17)
-      RETURNING *
-    `,
-    [
-      createdBy,
-      branchOffice,
-      seqNumber,
-      month,
-      year,
-      formNumber,
-      dto.seafarer_code,
-      dto.seaman_code,
-      dto.seaman_name,
-      dto.position,
-      dto.ship,
-      dto.complaint,
-      dto.cr9_url,
-      createdBy,
-      dto.receipt_url,
-      createdBy,
-      dto.amount,
-    ],
-  )
-  return result.rows[0] ?? null
+/**
+ * Tandai CR9 sebagai submitted, dan sinkronkan `submitted_at` ke Form A2 yang
+ * sudah dibuat sejak CR9 ini dibuat (lihat `createCr9AndA2` di form-a2.repository.ts).
+ * Tidak lagi meng-insert Form A2 baru — A2 sudah ada sejak CR9 dibuat.
+ */
+export async function submitCr9(
+  cr9Id: string,
+): Promise<{ cr9: FormCr9; a2Id: string } | null> {
+  const client = await pool.connect()
+  try {
+    await client.query("BEGIN")
+
+    const cr9Res = await client.query<FormCr9>(
+      /* sql */ `
+        UPDATE form_cr9
+        SET status = 'submitted', submitted_at = NOW(), updated_at = NOW()
+        WHERE id = $1
+        RETURNING *
+      `,
+      [cr9Id],
+    )
+    const cr9 = cr9Res.rows[0]
+    if (!cr9) {
+      await client.query("ROLLBACK")
+      return null
+    }
+
+    const a2Res = await client.query<{ id: string }>(
+      /* sql */ `
+        UPDATE form_a2
+        SET submitted_at = NOW(), updated_at = NOW()
+        WHERE form_cr9_id = $1
+        RETURNING id
+      `,
+      [cr9Id],
+    )
+    const a2Id = a2Res.rows[0]?.id
+    if (!a2Id) {
+      await client.query("ROLLBACK")
+      return null
+    }
+
+    await client.query("COMMIT")
+    return { cr9, a2Id }
+  } catch (err) {
+    await client.query("ROLLBACK")
+    throw err
+  } finally {
+    client.release()
+  }
 }
 
 export async function update(
@@ -203,10 +205,9 @@ export async function update(
     fields.push(`receipt_url_added_at = NOW()`)
     values.push(dto.receipt_url, userId)
   }
-  if (dto.amount !== undefined) {
-    fields.push(`amount = $${idx++}`)
-    values.push(dto.amount)
-  }
+  // `amount` tidak diupdate manual di sini — selalu disinkronkan dari SUM rincian
+  // biaya lewat `replaceCr9DetailsAndDiagnosis` (form-a2.repository.ts) saat
+  // `dto.details` berubah.
 
   if (fields.length === 0) return findById(id).then((r) => r)
 

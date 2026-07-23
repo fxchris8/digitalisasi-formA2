@@ -101,7 +101,13 @@ export async function requestRevisionFormA2(
   const form = await repo.findById(id)
   assertFormPendingAtStep(form, step)
 
-  const updated = await repo.requestRevision(id, step, user.id, dto.notes)
+  const updated = await repo.requestRevision(
+    id,
+    step,
+    user.id,
+    dto.notes,
+    dto.target,
+  )
   if (!updated) {
     throw new AppError(
       "Gagal mengajukan revisi Form A2",

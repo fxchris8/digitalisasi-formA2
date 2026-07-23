@@ -6,8 +6,6 @@ import {
 import { RoleGuard } from "@/components/guards/role-guard"
 import { MainLayout } from "@/components/layouts/main-layout"
 import { ROLES } from "@/lib/rbac"
-import ApprovalPage from "@/pages/approval"
-import ApprovalDetailPage from "@/pages/approval/detail"
 import ApprovalLogPage from "@/pages/approval-log"
 import LoginPage from "@/pages/auth/login"
 import BranchOfficePage from "@/pages/branch-office"
@@ -23,7 +21,13 @@ import FormCr9Page from "@/pages/form-cr9"
 import FormCr9CreatePage from "@/pages/form-cr9/create"
 import FormCr9DetailPage from "@/pages/form-cr9/detail"
 import FormCr9EditPage from "@/pages/form-cr9/edit"
+import HospitalPage from "@/pages/hospital"
+import HospitalCreatePage from "@/pages/hospital/create"
+import HospitalEditPage from "@/pages/hospital/edit"
 import SeamanPage from "@/pages/seaman"
+import ShipPage from "@/pages/ship"
+import ShipCreatePage from "@/pages/ship/create"
+import ShipEditPage from "@/pages/ship/edit"
 import UsersPage from "@/pages/users"
 import UsersCreatePage from "@/pages/users/create"
 import UsersDetailPage from "@/pages/users/detail"
@@ -112,18 +116,6 @@ export const router = createBrowserRouter([
             ],
           },
 
-          // Manager & Staff finance: approval
-          {
-            element: <RoleGuard requiredPermission="view:approval" />,
-            children: [
-              { path: ROUTES.approval.path, element: <ApprovalPage /> },
-              {
-                path: ROUTES.approvalDetail.path,
-                element: <ApprovalDetailPage />,
-              },
-            ],
-          },
-
           // Hanya admin: approval log
           {
             element: <RoleGuard requiredPermission="view:approval-log" />,
@@ -151,6 +143,29 @@ export const router = createBrowserRouter([
                 path: ROUTES.branchOfficeEdit.path,
                 element: <BranchOfficeEditPage />,
               },
+            ],
+          },
+
+          // Hanya admin: kelola master data rumah sakit
+          {
+            element: <RoleGuard requiredPermission="manage:hospitals" />,
+            children: [
+              { path: ROUTES.hospital.path, element: <HospitalPage /> },
+              {
+                path: ROUTES.hospitalCreate.path,
+                element: <HospitalCreatePage />,
+              },
+              { path: ROUTES.hospitalEdit.path, element: <HospitalEditPage /> },
+            ],
+          },
+
+          // Hanya admin: kelola master data kapal
+          {
+            element: <RoleGuard requiredPermission="manage:ships" />,
+            children: [
+              { path: ROUTES.ship.path, element: <ShipPage /> },
+              { path: ROUTES.shipCreate.path, element: <ShipCreatePage /> },
+              { path: ROUTES.shipEdit.path, element: <ShipEditPage /> },
             ],
           },
 

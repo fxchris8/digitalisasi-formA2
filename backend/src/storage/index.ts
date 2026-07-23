@@ -18,6 +18,11 @@ export interface StorageProvider {
    * Open a readable stream for a stored file.
    */
   createReadStream(storedPath: string): Readable
+
+  /**
+   * Read a stored file fully into memory (dipakai untuk ekstraksi dokumen).
+   */
+  readBuffer(storedPath: string): Promise<Buffer>
 }
 
 // ─── Factory ──────────────────────────────────────────────────────────────────

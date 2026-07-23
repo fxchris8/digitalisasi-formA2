@@ -4,52 +4,103 @@ import type {
   FormA2,
   FormA2ApprovalLog,
   FormA2Detail,
+  FormA2Revision,
   FormA2WithCr9,
   FormA2WithDetails,
+  RevisionTargetRole,
 } from "@/models/form-a2.model"
 import type { FormCr9 } from "@/models/form-cr9.model"
-import type {
-  AddDetailDto,
-  UpdateFormA2Dto,
-} from "@/validations/form-a2.validation"
+import type { UpdateFormA2Dto } from "@/validations/form-a2.validation"
 
-// ── Submit CR9 + Create A2 (atomic transaction) ───────────────────────────────
+// ── Create CR9 + Create A2 (atomic transaction) ───────────────────────────────
 
 /**
- * Dalam satu transaksi:
- * 1. Update form_cr9.status = 'submitted'
- * 2. Generate nomor urut A2 secara atomik
- * 3. Insert form_a2 baru (status = 'draft')
+ * Dalam satu transaksi (dipanggil saat staff cabang "Buat Form CR9"):
+ * 1. Generate nomor urut CR9 & insert form_cr9 (amount = SUM rincian biaya)
+ * 2. Generate nomor urut A2 secara atomik & insert form_a2 (status = 'draft', submitted_at = NULL)
+ * 3. Insert form_a2_detail untuk setiap rincian biaya (semua baris berbagi hospital_id yang sama)
  *
- * Format nomor A2: A2/{seq:04d}/{month:02d}/{year}
+ * Form A2 baru "selesai" (submitted_at terisi) saat CR9-nya diajukan — lihat `submitCr9` di
+ * form-cr9.repository.ts. Format nomor CR9: CR9/{branch}/{seq:04d}/{month:02d}/{year}.
+ * Format nomor A2: A2/{seq:04d}/{month:02d}/{year}.
  */
-export async function submitCr9AndCreateA2(params: {
-  cr9Id: string
+export async function createCr9AndA2(params: {
   createdBy: string
-  diagnosis: string // initial value, biasanya diisi complaint dari CR9
+  branchOffice: string
   month: number
   year: number
+  seafarerCode: string
+  seamanCode: string
+  seamanName: string
+  position: string
+  ship: string
+  complaint: string
+  cr9Url: string
+  receiptUrl: string
+  diagnosis: string
+  hospitalId: string
+  details: { description: string; amount: number }[]
 }): Promise<{ cr9: FormCr9; a2: FormA2 }> {
   const client = await pool.connect()
 
   try {
     await client.query("BEGIN")
 
-    // 1. Update CR9 → submitted
+    const amount = params.details.reduce((sum, d) => sum + d.amount, 0)
+
+    // 1. Generate nomor urut CR9 (per branch office per tahun) & insert form_cr9
+    const cr9SeqRes = await client.query<{ last_seq: number }>(
+      /* sql */ `
+        INSERT INTO form_number_counter (form_type, branch_office, year, last_seq)
+        VALUES ('CR9', $1, $2, 1)
+        ON CONFLICT (form_type, branch_office, year)
+        DO UPDATE SET last_seq = form_number_counter.last_seq + 1
+        RETURNING last_seq
+      `,
+      [params.branchOffice, params.year],
+    )
+    const cr9Seq = cr9SeqRes.rows[0]?.last_seq
+    if (cr9Seq === undefined)
+      throw new Error("Failed to generate CR9 sequence number")
+
+    const cr9FormNumber = `CR9/${params.branchOffice}/${String(cr9Seq).padStart(4, "0")}/${String(params.month).padStart(2, "0")}/${params.year}`
+
     const cr9Res = await client.query<FormCr9>(
       /* sql */ `
-        UPDATE form_cr9
-        SET status = 'submitted', submitted_at = NOW(), updated_at = NOW()
-        WHERE id = $1
+        INSERT INTO form_cr9 (
+          created_by, branch_office, seq_number, month, year, form_number,
+          seafarer_code, seaman_code, seaman_name, position, ship, complaint,
+          cr9_url, cr9_url_added_by, cr9_url_added_at,
+          receipt_url, receipt_url_added_by, receipt_url_added_at,
+          amount
+        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,NOW(),$15,$16,NOW(),$17)
         RETURNING *
       `,
-      [params.cr9Id],
+      [
+        params.createdBy,
+        params.branchOffice,
+        cr9Seq,
+        params.month,
+        params.year,
+        cr9FormNumber,
+        params.seafarerCode,
+        params.seamanCode,
+        params.seamanName,
+        params.position,
+        params.ship,
+        params.complaint,
+        params.cr9Url,
+        params.createdBy,
+        params.receiptUrl,
+        params.createdBy,
+        amount,
+      ],
     )
     const cr9 = cr9Res.rows[0]
-    if (!cr9) throw new Error("CR9 not found")
+    if (!cr9) throw new Error("Failed to create Form CR9")
 
-    // 2. Increment A2 global counter
-    const seqRes = await client.query<{ last_seq: number }>(
+    // 2. Generate nomor urut A2 (counter global) & insert form_a2 (draft)
+    const a2SeqRes = await client.query<{ last_seq: number }>(
       /* sql */ `
         INSERT INTO form_number_counter (form_type, branch_office, year, last_seq)
         VALUES ('A2', 'GLOBAL', $1, 1)
@@ -59,39 +110,105 @@ export async function submitCr9AndCreateA2(params: {
       `,
       [params.year],
     )
-    const seqRow = seqRes.rows[0]
-    if (!seqRow) throw new Error("Failed to generate sequence number")
-    const seq = seqRow.last_seq
+    const a2Seq = a2SeqRes.rows[0]?.last_seq
+    if (a2Seq === undefined)
+      throw new Error("Failed to generate A2 sequence number")
 
-    // 3. Build form number: A2/0001/01/2024
-    const s = String(seq).padStart(4, "0")
-    const m = String(params.month).padStart(2, "0")
-    const formNumber = `A2/${s}/${m}/${params.year}`
+    const a2FormNumber = `A2/${String(a2Seq).padStart(4, "0")}/${String(params.month).padStart(2, "0")}/${params.year}`
 
-    // 4. Insert form_a2
     const a2Res = await client.query<FormA2>(
       /* sql */ `
         INSERT INTO form_a2 (
-          form_cr9_id, created_by, seq_number, month, year,
-          form_number, diagnosis, submitted_at
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
+          form_cr9_id, created_by, seq_number, month, year, form_number, diagnosis
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7)
         RETURNING *
       `,
       [
-        params.cr9Id,
+        cr9.id,
         params.createdBy,
-        seq,
+        a2Seq,
         params.month,
         params.year,
-        formNumber,
+        a2FormNumber,
         params.diagnosis,
       ],
     )
     const a2 = a2Res.rows[0]
     if (!a2) throw new Error("Failed to create Form A2")
 
+    // 3. Insert rincian biaya (semua baris pakai hospital_id yang sama)
+    for (const detail of params.details) {
+      await client.query(
+        /* sql */ `
+          INSERT INTO form_a2_detail (form_a2_id, description, hospital_id, amount)
+          VALUES ($1, $2, $3, $4)
+        `,
+        [a2.id, detail.description, params.hospitalId, detail.amount],
+      )
+    }
+
     await client.query("COMMIT")
     return { cr9, a2 }
+  } catch (err) {
+    await client.query("ROLLBACK")
+    throw err
+  } finally {
+    client.release()
+  }
+}
+
+/**
+ * Ganti diagnosis dan/atau seluruh rincian biaya Form A2 yang terhubung ke sebuah CR9.
+ * Dipanggil saat staff cabang mengedit CR9 (draft/revision). Rincian lama dihapus &
+ * diganti total (bukan di-patch per baris) supaya konsisten dengan form pengisian di FE
+ * yang selalu mengirim daftar penuh. `form_cr9.amount` ikut disinkronkan dari SUM rincian baru.
+ */
+export async function replaceCr9DetailsAndDiagnosis(params: {
+  cr9Id: string
+  diagnosis?: string | undefined
+  hospitalId?: string | undefined
+  details?: { description: string; amount: number }[] | undefined
+}): Promise<void> {
+  const client = await pool.connect()
+
+  try {
+    await client.query("BEGIN")
+
+    const a2Res = await client.query<{ id: string }>(
+      `SELECT id FROM form_a2 WHERE form_cr9_id = $1`,
+      [params.cr9Id],
+    )
+    const a2Id = a2Res.rows[0]?.id
+    if (!a2Id) throw new Error("Form A2 terkait tidak ditemukan")
+
+    if (params.diagnosis !== undefined) {
+      await client.query(
+        `UPDATE form_a2 SET diagnosis = $1, updated_at = NOW() WHERE id = $2`,
+        [params.diagnosis, a2Id],
+      )
+    }
+
+    if (params.details !== undefined && params.hospitalId !== undefined) {
+      await client.query(`DELETE FROM form_a2_detail WHERE form_a2_id = $1`, [
+        a2Id,
+      ])
+      for (const detail of params.details) {
+        await client.query(
+          /* sql */ `
+            INSERT INTO form_a2_detail (form_a2_id, description, hospital_id, amount)
+            VALUES ($1, $2, $3, $4)
+          `,
+          [a2Id, detail.description, params.hospitalId, detail.amount],
+        )
+      }
+      const amount = params.details.reduce((sum, d) => sum + d.amount, 0)
+      await client.query(
+        `UPDATE form_cr9 SET amount = $1, updated_at = NOW() WHERE id = $2`,
+        [amount, params.cr9Id],
+      )
+    }
+
+    await client.query("COMMIT")
   } catch (err) {
     await client.query("ROLLBACK")
     throw err
@@ -206,7 +323,18 @@ export async function findById(id: string): Promise<FormA2WithDetails | null> {
   const a2 = a2Res.rows[0]
 
   const detailsRes = await pool.query<FormA2Detail>(
-    `SELECT * FROM form_a2_detail WHERE form_a2_id = $1 ORDER BY created_at ASC`,
+    /* sql */ `
+      SELECT
+        d.*,
+        h.name AS hospital_name,
+        h.category AS hospital_category,
+        h.province AS hospital_province,
+        h.city AS hospital_city
+      FROM form_a2_detail d
+      JOIN hospitals h ON h.id = d.hospital_id
+      WHERE d.form_a2_id = $1
+      ORDER BY d.created_at ASC
+    `,
     [id],
   )
 
@@ -221,10 +349,13 @@ export async function findById(id: string): Promise<FormA2WithDetails | null> {
     [id],
   )
 
+  const activeRevision = await findActiveRevision(id)
+
   return {
     ...a2,
     details: detailsRes.rows,
     approval_logs: logsRes.rows,
+    active_revision: activeRevision,
   }
 }
 
@@ -243,8 +374,9 @@ export async function findByCr9Id(
 // ── Update ────────────────────────────────────────────────────────────────────
 
 /**
- * Update diagnosis dan/atau news_url.
- * Jika news_url diubah, otomatis set news_added_by & news_added_at.
+ * Update news_url (berita acara) — satu-satunya field yang bisa diubah staff SPM
+ * di Form A2. Diagnosis & rincian biaya diisi di tahap CR9 oleh staff cabang
+ * (lihat `replaceCr9DetailsAndDiagnosis`).
  */
 export async function update(
   id: string,
@@ -255,10 +387,6 @@ export async function update(
   const values: unknown[] = []
   let idx = 1
 
-  if (dto.diagnosis !== undefined) {
-    fields.push(`diagnosis = $${idx++}`)
-    values.push(dto.diagnosis)
-  }
   if (dto.news_url !== undefined) {
     fields.push(`news_url = $${idx++}`)
     fields.push(`news_added_by = $${idx++}`)
@@ -279,36 +407,6 @@ export async function update(
     values,
   )
   return result.rows[0] ?? null
-}
-
-// ── Detail items ──────────────────────────────────────────────────────────────
-
-export async function addDetail(
-  formA2Id: string,
-  dto: AddDetailDto,
-): Promise<FormA2Detail | null> {
-  const result = await pool.query<FormA2Detail>(
-    /* sql */ `
-      INSERT INTO form_a2_detail (form_a2_id, description, hospital_name, hospital_category, amount)
-      VALUES ($1, $2, $3, $4, $5)
-      RETURNING *
-    `,
-    [
-      formA2Id,
-      dto.description,
-      dto.hospital_name,
-      dto.hospital_category,
-      dto.amount,
-    ],
-  )
-  return result.rows[0] ?? null
-}
-
-export async function removeDetail(detailId: string): Promise<boolean> {
-  const result = await pool.query(`DELETE FROM form_a2_detail WHERE id = $1`, [
-    detailId,
-  ])
-  return (result.rowCount ?? 0) > 0
 }
 
 // ── Status transitions ────────────────────────────────────────────────────────
@@ -380,6 +478,7 @@ export async function requestRevision(
   step: ApprovalStep,
   userId: string,
   notes: string,
+  target: RevisionTargetRole,
 ): Promise<FormA2 | null> {
   const client = await pool.connect()
   try {
@@ -392,15 +491,158 @@ export async function requestRevision(
     )
 
     await client.query(
-      `INSERT INTO form_a2_revision (form_a2_id, step, requested_by, notes)
-       VALUES ($1, $2, $3, $4)`,
-      [id, step, userId, notes],
+      `INSERT INTO form_a2_revision (form_a2_id, step, target_role, requested_by, notes)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [id, step, target, userId, notes],
     )
 
     const result = await client.query<FormA2>(
       `UPDATE form_a2 SET status = 'revision', current_step = NULL, updated_at = NOW()
        WHERE id = $1 RETURNING *`,
       [id],
+    )
+
+    await client.query("COMMIT")
+    return result.rows[0] ?? null
+  } catch (err) {
+    await client.query("ROLLBACK")
+    throw err
+  } finally {
+    client.release()
+  }
+}
+
+/** Cari revisi yang masih aktif (belum diselesaikan) untuk sebuah Form A2. */
+export async function findActiveRevision(
+  formA2Id: string,
+): Promise<FormA2Revision | null> {
+  const result = await pool.query<FormA2Revision>(
+    /* sql */ `
+      SELECT * FROM form_a2_revision
+      WHERE form_a2_id = $1 AND is_resolved = FALSE
+      ORDER BY requested_at DESC
+      LIMIT 1
+    `,
+    [formA2Id],
+  )
+  return result.rows[0] ?? null
+}
+
+/**
+ * Tandai revisi sebagai selesai, lalu ajukan ulang Form A2 ke step yang
+ * sebelumnya meminta revisi (bukan selalu 'nautica' — lihat bug lama di
+ * `submitToManager`, yang hanya dipakai untuk pengajuan pertama kali).
+ */
+export async function resolveRevisionAndResubmit(
+  formA2Id: string,
+  revisionId: string,
+  targetStep: ApprovalStep,
+  submittedBy: string,
+): Promise<FormA2 | null> {
+  const client = await pool.connect()
+  try {
+    await client.query("BEGIN")
+
+    await client.query(
+      /* sql */ `
+        UPDATE form_a2_revision
+        SET is_resolved = TRUE, resolved_by = $1, resolved_at = NOW()
+        WHERE id = $2
+      `,
+      [submittedBy, revisionId],
+    )
+
+    const result = await client.query<FormA2>(
+      /* sql */ `
+        UPDATE form_a2
+        SET
+          status = 'pending',
+          current_step = $1,
+          submitted_to_manager_at = NOW(),
+          submitted_to_manager_by = $2,
+          updated_at = NOW()
+        WHERE id = $3
+        RETURNING *
+      `,
+      [targetStep, submittedBy, formA2Id],
+    )
+
+    await client.query("COMMIT")
+    return result.rows[0] ?? null
+  } catch (err) {
+    await client.query("ROLLBACK")
+    throw err
+  } finally {
+    client.release()
+  }
+}
+
+/**
+ * Staff SPM mengirim form kembali ke staff cabang untuk revisi data —
+ * dipakai SEBELUM form pernah diajukan ke manager (status masih 'draft').
+ * `step: 'nautica'` di sini cuma penanda "tujuan berikutnya setelah
+ * diperbaiki & diajukan normal", bukan hasil aksi seorang approver — beda
+ * dari revisi yang dipicu Nautica/SPM-manager/Finance di dalam approval chain.
+ */
+export async function requestPreChainRevision(
+  formA2Id: string,
+  userId: string,
+  notes: string,
+): Promise<FormA2 | null> {
+  const client = await pool.connect()
+  try {
+    await client.query("BEGIN")
+
+    await client.query(
+      /* sql */ `
+        INSERT INTO form_a2_revision (form_a2_id, step, target_role, requested_by, notes)
+        VALUES ($1, 'nautica', 'staff_cabang', $2, $3)
+      `,
+      [formA2Id, userId, notes],
+    )
+
+    const result = await client.query<FormA2>(
+      `UPDATE form_a2 SET status = 'revision', updated_at = NOW() WHERE id = $1 RETURNING *`,
+      [formA2Id],
+    )
+
+    await client.query("COMMIT")
+    return result.rows[0] ?? null
+  } catch (err) {
+    await client.query("ROLLBACK")
+    throw err
+  } finally {
+    client.release()
+  }
+}
+
+/**
+ * Selesaikan revisi pra-chain setelah cabang memperbaiki data — form
+ * kembali ke 'draft' (BUKAN 'pending'), karena staff SPM belum pernah
+ * benar-benar mengajukan ke manager. Beda dari `resolveRevisionAndResubmit`
+ * yang dipakai untuk revisi dalam approval chain.
+ */
+export async function resolvePreChainRevision(
+  formA2Id: string,
+  revisionId: string,
+  resolvedBy: string,
+): Promise<FormA2 | null> {
+  const client = await pool.connect()
+  try {
+    await client.query("BEGIN")
+
+    await client.query(
+      /* sql */ `
+        UPDATE form_a2_revision
+        SET is_resolved = TRUE, resolved_by = $1, resolved_at = NOW()
+        WHERE id = $2
+      `,
+      [resolvedBy, revisionId],
+    )
+
+    const result = await client.query<FormA2>(
+      `UPDATE form_a2 SET status = 'draft', updated_at = NOW() WHERE id = $1 RETURNING *`,
+      [formA2Id],
     )
 
     await client.query("COMMIT")

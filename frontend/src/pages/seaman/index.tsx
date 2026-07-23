@@ -187,10 +187,7 @@ export default function SeamanPage() {
               <TableHead>Seaman Code</TableHead>
               <TableHead>Nama</TableHead>
               <TableHead>Jabatan Terakhir</TableHead>
-              <TableHead>Kapal Terakhir</TableHead>
               <TableHead>Fleet</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead className="text-right">Sisa Hari</TableHead>
               <TableHead className="text-center">Aksi</TableHead>
             </TableRow>
           </TableHeader>
@@ -198,7 +195,7 @@ export default function SeamanPage() {
             {loading ? (
               <TableRow>
                 <TableCell
-                  colSpan={9}
+                  colSpan={6}
                   className="text-center py-10 text-muted-foreground text-sm"
                 >
                   Memuat data...
@@ -207,7 +204,7 @@ export default function SeamanPage() {
             ) : !data || data.data.length === 0 ? (
               <TableRow>
                 <TableCell
-                  colSpan={9}
+                  colSpan={6}
                   className="text-center py-10 text-muted-foreground text-sm italic"
                 >
                   {search
@@ -230,24 +227,7 @@ export default function SeamanPage() {
                   <TableCell className="text-muted-foreground">
                     {s.last_position ?? "-"}
                   </TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {s.last_location ?? "-"}
-                  </TableCell>
                   <TableCell>{s.fleet ?? "-"}</TableCell>
-                  <TableCell>
-                    <span
-                      className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
-                        s.status === "ON BOARD"
-                          ? "bg-green-100 text-green-700"
-                          : "bg-gray-100 text-gray-600"
-                      }`}
-                    >
-                      {s.status ?? "-"}
-                    </span>
-                  </TableCell>
-                  <TableCell className="text-right tabular-nums">
-                    {s.day_remains != null ? s.day_remains : "-"}
-                  </TableCell>
                   <TableCell className="text-center">
                     <Button
                       size="xs"

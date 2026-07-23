@@ -1,9 +1,13 @@
+import { Sparkles } from "lucide-react"
 import { useEffect, useState } from "react"
 import { useNavigate } from "react-router"
 import { toast } from "sonner"
 import { listBranchOffices } from "@/api/auth"
+import { extractReceipt } from "@/api/extraction"
 import { createFormCr9 } from "@/api/form-cr9"
+import { CostDetailSection } from "@/components/form-cr9/cost-detail-section"
 import { SeamanAutocompleteField } from "@/components/form-cr9/seaman-autocomplete-field"
+import { ShipAutocompleteField } from "@/components/form-cr9/ship-autocomplete-field"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -23,10 +27,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { Textarea } from "@/components/ui/textarea"
 import { useAuth } from "@/contexts/auth.context"
 import { uploadFile } from "@/lib/storage"
 import { ROUTES } from "@/routes/config"
-import type { CreateFormCr9Payload } from "@/types/form-cr9"
+import type { CostDetailItem, CreateFormCr9Payload } from "@/types/form-cr9"
+import type { Hospital } from "@/types/hospital"
 import type { Seaman } from "@/types/seaman"
 import { formCr9Schema } from "@/validations/form-cr9.validation"
 
@@ -41,7 +47,8 @@ type FormState = {
   complaint: string
   cr9_url: string
   receipt_url: string
-  amount: string
+  diagnosis: string
+  hospital_id: string
   branch_office: string
 }
 
@@ -58,7 +65,8 @@ const EMPTY_FORM: FormState = {
   complaint: "",
   cr9_url: "",
   receipt_url: "",
-  amount: "",
+  diagnosis: "",
+  hospital_id: "",
   branch_office: "",
 }
 
@@ -120,10 +128,14 @@ export default function FormCr9CreatePage() {
   const [errors, setErrors] = useState<FormErrors>({})
   const [submitting, setSubmitting] = useState(false)
   const [offices, setOffices] = useState<string[]>([])
-  const [isSeamanSelected, setIsSeamanSelected] = useState(false)
+
+  const [hospitalLabel, setHospitalLabel] = useState("")
+  const [details, setDetails] = useState<CostDetailItem[]>([])
+  const [detailsError, setDetailsError] = useState<string | undefined>()
 
   const [cr9Status, setCr9Status] = useState<UploadStatus>("idle")
   const [receiptStatus, setReceiptStatus] = useState<UploadStatus>("idle")
+  const [extracting, setExtracting] = useState(false)
 
   useEffect(() => {
     if (!needsBranchSelect) return
@@ -137,35 +149,9 @@ export default function FormCr9CreatePage() {
     if (errors[field]) setErrors((prev) => ({ ...prev, [field]: undefined }))
   }
 
-  function handleSeamanFieldChange(
-    field: "seafarer_code" | "seaman_code" | "seaman_name",
-    value: string,
-  ) {
-    if (isSeamanSelected) {
-      setIsSeamanSelected(false)
-      setForm((prev) => ({
-        ...prev,
-        seafarer_code: field === "seafarer_code" ? value : "",
-        seaman_code: field === "seaman_code" ? value : "",
-        seaman_name: field === "seaman_name" ? value : "",
-        position: "",
-        ship: "",
-      }))
-      setErrors((prev) => ({
-        ...prev,
-        seafarer_code: undefined,
-        seaman_code: undefined,
-        seaman_name: undefined,
-        position: undefined,
-        ship: undefined,
-      }))
-    } else {
-      handleChange(field, value)
-    }
-  }
-
+  // Seafarer code/nama/jabatan ikut terisi & terkunci begitu seaman dipilih
+  // dari dropdown-search (lihat handleSeamanSelect) — tidak ada input manual.
   function handleSeamanSelect(seaman: Seaman) {
-    setIsSeamanSelected(true)
     setForm((prev) => ({
       ...prev,
       seafarer_code: seaman.seafarercode ?? "",
@@ -184,6 +170,11 @@ export default function FormCr9CreatePage() {
     }))
   }
 
+  function handleHospitalSelect(hospital: Hospital) {
+    setHospitalLabel(`${hospital.name} — ${hospital.city}`)
+    handleChange("hospital_id", hospital.id)
+  }
+
   async function handleFileChange(
     e: React.ChangeEvent<HTMLInputElement>,
     folder: string,
@@ -200,9 +191,46 @@ export default function FormCr9CreatePage() {
       const storedPath = await uploadFile(file, folder)
       handleChange(field, storedPath)
       setStatus("done")
-    } catch {
+    } catch (err) {
       setStatus("error")
-      toast.error("Gagal mengupload file, coba lagi")
+      toast.error(
+        err instanceof Error ? err.message : "Gagal mengupload file, coba lagi",
+      )
+    }
+  }
+
+  // Baca kwitansi yang sudah diupload pakai AI, pre-fill rumah sakit & rincian
+  // biaya — hasilnya tetap harus dicek manual sebelum disimpan (bukan final).
+  async function handleExtract() {
+    if (!form.receipt_url) return
+    setExtracting(true)
+    try {
+      const result = await extractReceipt(form.receipt_url)
+
+      if (result.hospital_name) {
+        toast.info(
+          `Nota terbaca atas nama "${result.hospital_name}" — pilih rumah sakit secara manual`,
+        )
+      }
+
+      if (result.details.length > 0) {
+        setDetails(
+          result.details.map((d) => ({
+            description: d.description,
+            amount: d.amount,
+          })),
+        )
+      }
+
+      toast.success(
+        "Data berhasil diekstrak dari kwitansi — periksa kembali sebelum menyimpan",
+      )
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Gagal mengekstrak data kwitansi",
+      )
+    } finally {
+      setExtracting(false)
     }
   }
 
@@ -214,7 +242,15 @@ export default function FormCr9CreatePage() {
       errs.branch_office = "Cabang wajib dipilih"
     }
 
-    if (Object.keys(errs).length > 0) {
+    let detailsErr: string | undefined
+    if (details.length === 0) {
+      detailsErr = "Minimal satu uraian biaya wajib diisi"
+    } else if (details.some((d) => !d.description.trim() || d.amount <= 0)) {
+      detailsErr = "Setiap uraian harus punya deskripsi dan jumlah > 0"
+    }
+    setDetailsError(detailsErr)
+
+    if (Object.keys(errs).length > 0 || detailsErr) {
       setErrors(errs)
       return
     }
@@ -230,11 +266,16 @@ export default function FormCr9CreatePage() {
         complaint: form.complaint.trim(),
         cr9_url: form.cr9_url,
         receipt_url: form.receipt_url,
-        amount: Number(form.amount),
+        diagnosis: form.diagnosis.trim(),
+        hospital_id: form.hospital_id,
+        details: details.map((d) => ({
+          description: d.description.trim(),
+          amount: d.amount,
+        })),
         ...(needsBranchSelect && { branch_office: form.branch_office }),
       }
       await createFormCr9(payload)
-      toast.success("Form CR9 berhasil dibuat")
+      toast.success("Form CR9 dan Form A2 berhasil dibuat")
       navigate(ROUTES.formCr9.path)
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Gagal membuat Form CR9")
@@ -260,13 +301,14 @@ export default function FormCr9CreatePage() {
       </div>
 
       {/* Form */}
-      <form onSubmit={handleSubmit}>
+      <form onSubmit={handleSubmit} className="space-y-6">
         <Card>
           <CardHeader>
             <CardTitle>Informasi Form CR9</CardTitle>
             <CardDescription>
               Isi form berikut dengan data yang benar dan lengkap. Setelah
-              disimpan, form akan masuk ke tahap review oleh staff SPM.
+              disimpan, Form A2 akan otomatis dibuat dan menunggu berita acara
+              dari staff SPM.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -300,58 +342,61 @@ export default function FormCr9CreatePage() {
               )}
 
               <SeamanAutocompleteField
-                id="seafarer_code"
-                label="Seafarer Code"
-                searchBy="seafarercode"
-                value={form.seafarer_code}
-                onChange={(v) => handleSeamanFieldChange("seafarer_code", v)}
-                onSelect={handleSeamanSelect}
-                placeholder="Cth: 20240118"
-                error={errors.seafarer_code}
-                disabled={submitting}
-              />
-
-              <SeamanAutocompleteField
                 id="seaman_code"
                 label="Seaman Code"
-                searchBy="seamancode"
-                value={form.seaman_code}
-                onChange={(v) => handleSeamanFieldChange("seaman_code", v)}
+                value={
+                  form.seaman_code
+                    ? `${form.seaman_code} - ${form.seaman_name}`
+                    : ""
+                }
                 onSelect={handleSeamanSelect}
-                placeholder="Cth: 20240118"
                 error={errors.seaman_code}
                 disabled={submitting}
               />
 
-              <SeamanAutocompleteField
+              <Field
+                id="seafarer_code"
+                label="Seafarer Code"
+                error={errors.seafarer_code}
+              >
+                <Input
+                  id="seafarer_code"
+                  placeholder="Terisi otomatis setelah pilih Seaman Code"
+                  value={form.seafarer_code}
+                  disabled
+                />
+              </Field>
+
+              <Field
                 id="seaman_name"
                 label="Seaman Name"
-                searchBy="name"
-                value={form.seaman_name}
-                onChange={(v) => handleSeamanFieldChange("seaman_name", v)}
-                onSelect={handleSeamanSelect}
-                placeholder="Nama lengkap seaman"
                 error={errors.seaman_name}
-                disabled={submitting}
-              />
+              >
+                <Input
+                  id="seaman_name"
+                  placeholder="Terisi otomatis setelah pilih Seaman Code"
+                  value={form.seaman_name}
+                  disabled
+                />
+              </Field>
 
               <Field id="position" label="Jabatan" error={errors.position}>
                 <Input
                   id="position"
-                  placeholder="Cth: Mualim I, Masinis II"
+                  placeholder="Terisi otomatis setelah pilih Seaman Code"
                   value={form.position}
-                  onChange={(e) => handleChange("position", e.target.value)}
+                  disabled
                 />
               </Field>
 
-              <Field id="ship" label="Nama Kapal" error={errors.ship}>
-                <Input
-                  id="ship"
-                  placeholder="Cth: KM Nusantara Jaya"
-                  value={form.ship}
-                  onChange={(e) => handleChange("ship", e.target.value)}
-                />
-              </Field>
+              <ShipAutocompleteField
+                id="ship"
+                label="Nama Kapal"
+                value={form.ship}
+                onChange={(v) => handleChange("ship", v)}
+                error={errors.ship}
+                disabled={submitting}
+              />
 
               <Field
                 id="complaint"
@@ -405,50 +450,68 @@ export default function FormCr9CreatePage() {
                   }
                 />
                 <UploadHint status={receiptStatus} />
-              </Field>
-
-              <Field
-                id="amount"
-                label="Jumlah Biaya (Rp)"
-                error={errors.amount}
-              >
-                <Input
-                  id="amount"
-                  type="text"
-                  inputMode="numeric"
-                  placeholder="Cth: 150000"
-                  value={form.amount}
-                  onChange={(e) =>
-                    handleChange("amount", e.target.value.replace(/\D/g, ""))
-                  }
-                />
+                {form.receipt_url && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="mt-1 gap-1.5 border-purple-300 text-purple-700 hover:bg-purple-50"
+                    disabled={extracting || receiptStatus === "uploading"}
+                    onClick={handleExtract}
+                  >
+                    <Sparkles className="size-3.5" />
+                    {extracting
+                      ? "Mengekstrak..."
+                      : "Ekstrak Otomatis dari Kwitansi"}
+                  </Button>
+                )}
               </Field>
             </div>
 
-            {/* Actions */}
-            <div className="flex justify-end gap-3 pt-2">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => navigate(ROUTES.formCr9.path)}
-                disabled={submitting}
-              >
-                Batal
-              </Button>
-              <Button
-                type="submit"
-                disabled={
-                  submitting ||
-                  cr9Status === "uploading" ||
-                  receiptStatus === "uploading"
-                }
-                className="bg-green-600 hover:bg-green-700 text-white"
-              >
-                {submitting ? "Menyimpan..." : "Simpan Form CR9"}
-              </Button>
-            </div>
+            <Field id="diagnosis" label="Diagnosis" error={errors.diagnosis}>
+              <Textarea
+                id="diagnosis"
+                rows={3}
+                placeholder="Tulis diagnosis medis..."
+                value={form.diagnosis}
+                onChange={(e) => handleChange("diagnosis", e.target.value)}
+              />
+            </Field>
           </CardContent>
         </Card>
+
+        <CostDetailSection
+          hospitalLabel={hospitalLabel}
+          onHospitalSelect={handleHospitalSelect}
+          hospitalError={errors.hospital_id}
+          details={details}
+          onDetailsChange={setDetails}
+          detailsError={detailsError}
+          disabled={submitting}
+        />
+
+        {/* Actions */}
+        <div className="flex justify-end gap-3">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => navigate(ROUTES.formCr9.path)}
+            disabled={submitting}
+          >
+            Batal
+          </Button>
+          <Button
+            type="submit"
+            disabled={
+              submitting ||
+              cr9Status === "uploading" ||
+              receiptStatus === "uploading"
+            }
+            className="bg-green-600 hover:bg-green-700 text-white"
+          >
+            {submitting ? "Menyimpan..." : "Simpan Form CR9"}
+          </Button>
+        </div>
       </form>
     </div>
   )

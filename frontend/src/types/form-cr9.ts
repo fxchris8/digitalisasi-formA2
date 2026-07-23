@@ -26,6 +26,16 @@ export interface FormCr9 {
   submitted_at: string | null
   created_at: string
   updated_at: string
+  // Info Form A2 terkait (join) — dipakai untuk status "Perlu Revisi"
+  form_a2_id: string | null
+  a2_status: string | null
+  needs_cabang_revision: boolean
+  revision_notes: string | null
+}
+
+export interface CostDetailItem {
+  description: string
+  amount: number
 }
 
 export interface CreateFormCr9Payload {
@@ -37,7 +47,9 @@ export interface CreateFormCr9Payload {
   complaint: string
   cr9_url: string
   receipt_url: string
-  amount: number
+  diagnosis: string
+  hospital_id: string
+  details: CostDetailItem[]
   branch_office?: string
 }
 

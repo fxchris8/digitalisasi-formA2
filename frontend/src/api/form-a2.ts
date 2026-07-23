@@ -2,9 +2,7 @@ import apiClient from "@/lib/api-client"
 import { unwrap } from "@/lib/api-utils"
 import type { ApiResponse, PaginatedResponse } from "@/types/api"
 import type {
-  AddDetailPayload,
   FormA2,
-  FormA2Detail,
   FormA2ListParams,
   FormA2WithDetails,
   UpdateFormA2Payload,
@@ -47,27 +45,20 @@ export async function updateFormA2(
   return unwrap(res.data)
 }
 
-export async function addFormA2Detail(
-  id: string,
-  payload: AddDetailPayload,
-): Promise<FormA2Detail> {
-  const res = await apiClient.post<ApiResponse<FormA2Detail>>(
-    `/api/form-a2/${id}/details`,
-    payload,
+export async function submitFormA2(id: string): Promise<FormA2> {
+  const res = await apiClient.post<ApiResponse<FormA2>>(
+    `/api/form-a2/${id}/submit`,
   )
   return unwrap(res.data)
 }
 
-export async function removeFormA2Detail(
+export async function requestCabangRevision(
   id: string,
-  detailId: string,
-): Promise<void> {
-  await apiClient.delete(`/api/form-a2/${id}/details/${detailId}`)
-}
-
-export async function submitFormA2(id: string): Promise<FormA2> {
+  payload: { notes: string },
+): Promise<FormA2> {
   const res = await apiClient.post<ApiResponse<FormA2>>(
-    `/api/form-a2/${id}/submit`,
+    `/api/form-a2/${id}/request-cabang-revision`,
+    payload,
   )
   return unwrap(res.data)
 }

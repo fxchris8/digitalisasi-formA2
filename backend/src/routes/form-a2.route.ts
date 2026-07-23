@@ -1,10 +1,9 @@
 import { Router } from "express"
 import {
-  addDetailHandler,
   getFormA2ByCr9Handler,
   getFormA2Handler,
   listFormA2Handler,
-  removeDetailHandler,
+  requestCabangRevisionHandler,
   submitFormA2Handler,
   updateFormA2Handler,
 } from "@/handlers/form-a2.handler"
@@ -23,20 +22,17 @@ router.get("/by-cr9/:cr9Id", getFormA2ByCr9Handler)
 // GET  /api/form-a2/:id                    — detail
 router.get("/:id", getFormA2Handler)
 
-// PUT  /api/form-a2/:id                    — update diagnosis / news_url (staff spm & admin)
+// PUT  /api/form-a2/:id                    — update news_url / berita acara (staff spm & admin)
 router.put("/:id", authorize("admin", "staff"), updateFormA2Handler)
-
-// POST /api/form-a2/:id/details            — tambah detail biaya (staff spm & admin)
-router.post("/:id/details", authorize("admin", "staff"), addDetailHandler)
-
-// DELETE /api/form-a2/:id/details/:detailId — hapus detail biaya (staff spm & admin)
-router.delete(
-  "/:id/details/:detailId",
-  authorize("admin", "staff"),
-  removeDetailHandler,
-)
 
 // POST /api/form-a2/:id/submit             — ajukan ke manager Nautica (staff spm & admin)
 router.post("/:id/submit", authorize("admin", "staff"), submitFormA2Handler)
+
+// POST /api/form-a2/:id/request-cabang-revision — minta revisi ke staff cabang, sebelum pernah diajukan ke manager (staff spm & admin)
+router.post(
+  "/:id/request-cabang-revision",
+  authorize("admin", "staff"),
+  requestCabangRevisionHandler,
+)
 
 export { router as formA2Router }

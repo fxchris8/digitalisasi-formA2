@@ -372,7 +372,14 @@ export default function FormCr9Page() {
                     {formatDate(form.created_at)}
                   </TableCell>
                   <TableCell>
-                    <StatusBadge status={form.status} />
+                    <div className="flex items-center gap-1.5">
+                      <StatusBadge status={form.status} />
+                      {form.needs_cabang_revision && (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-orange-100 text-orange-800">
+                          Perlu Revisi
+                        </span>
+                      )}
+                    </div>
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center justify-center gap-2">
@@ -385,16 +392,20 @@ export default function FormCr9Page() {
                         DETAIL
                       </Button>
 
-                      {canCreateOrRevise && form.status === "draft" && (
-                        <Button
-                          size="xs"
-                          title="Edit"
-                          className="text-white text-[10px] bg-amber-600 hover:bg-amber-700"
-                          onClick={() => navigate(`/form-cr9/${form.id}/edit`)}
-                        >
-                          EDIT
-                        </Button>
-                      )}
+                      {canCreateOrRevise &&
+                        (form.status === "draft" ||
+                          form.needs_cabang_revision) && (
+                          <Button
+                            size="xs"
+                            title="Edit"
+                            className="text-white text-[10px] bg-amber-600 hover:bg-amber-700"
+                            onClick={() =>
+                              navigate(`/form-cr9/${form.id}/edit`)
+                            }
+                          >
+                            EDIT
+                          </Button>
+                        )}
 
                       {canCreateOrRevise && form.status === "draft" && (
                         <Button

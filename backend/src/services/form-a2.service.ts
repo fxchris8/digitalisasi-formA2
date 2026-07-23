@@ -1,10 +1,9 @@
 import * as repo from "@/repositories/form-a2.repository"
-import * as cr9Repo from "@/repositories/form-cr9.repository"
 import type { JwtPayload } from "@/types/auth"
 import { AppError } from "@/utils/app-error"
 import type {
-  AddDetailDto,
   ListFormA2Query,
+  RequestCabangRevisionDto,
   UpdateFormA2Dto,
 } from "@/validations/form-a2.validation"
 
@@ -84,7 +83,18 @@ export async function updateFormA2(
   const form = await repo.findById(id)
   if (!form) throw new AppError("Form A2 tidak ditemukan", 404, "NOT_FOUND")
 
-  if (form.status !== "draft" && form.status !== "revision") {
+  if (form.status === "revision") {
+    // Kalau revisi ditujukan ke staff cabang (data kelengkapan), staff SPM
+    // belum boleh mengubah apa pun sampai cabang selesai memperbaiki datanya.
+    const activeRevision = await repo.findActiveRevision(id)
+    if (activeRevision && activeRevision.target_role !== "staff_spm") {
+      throw new AppError(
+        "Form ini sedang menunggu revisi data kelengkapan dari staff cabang",
+        422,
+        "UNPROCESSABLE",
+      )
+    }
+  } else if (form.status !== "draft") {
     throw new AppError(
       "Form A2 hanya bisa diubah saat berstatus draft atau revision",
       422,
@@ -99,56 +109,39 @@ export async function updateFormA2(
   return updated
 }
 
-export async function addFormA2Detail(
+/**
+ * Staff SPM mengirim CR9/A2 kembali ke staff cabang untuk perbaikan data —
+ * hanya bisa dilakukan sebelum form pernah diajukan ke manager sama sekali
+ * (status masih 'draft'). Berbeda dari revisi dalam approval chain yang
+ * dipicu Nautica/SPM-manager/Finance.
+ */
+export async function requestCabangRevision(
   user: JwtPayload,
-  formA2Id: string,
-  dto: AddDetailDto,
+  id: string,
+  dto: RequestCabangRevisionDto,
 ) {
-  assertSpmOrAdmin(user, "menambah detail biaya")
+  assertSpmOrAdmin(user, "meminta revisi ke staff cabang")
 
-  const form = await repo.findById(formA2Id)
+  const form = await repo.findById(id)
   if (!form) throw new AppError("Form A2 tidak ditemukan", 404, "NOT_FOUND")
 
-  if (form.status !== "draft" && form.status !== "revision") {
+  if (form.status !== "draft") {
     throw new AppError(
-      "Detail biaya hanya bisa ditambah saat status draft atau revision",
+      "Revisi ke cabang hanya bisa diminta sebelum Form A2 pernah diajukan ke manager",
       422,
       "UNPROCESSABLE",
     )
   }
 
-  const detail = await repo.addDetail(formA2Id, dto)
-  if (!detail)
+  const updated = await repo.requestPreChainRevision(id, user.id, dto.notes)
+  if (!updated) {
     throw new AppError(
-      "Gagal menambah detail biaya",
+      "Gagal mengajukan revisi ke staff cabang",
       500,
       "INTERNAL_SERVER_ERROR",
     )
-  return detail
-}
-
-export async function removeFormA2Detail(
-  user: JwtPayload,
-  formA2Id: string,
-  detailId: string,
-) {
-  assertSpmOrAdmin(user, "menghapus detail biaya")
-
-  const form = await repo.findById(formA2Id)
-  if (!form) throw new AppError("Form A2 tidak ditemukan", 404, "NOT_FOUND")
-
-  if (form.status !== "draft" && form.status !== "revision") {
-    throw new AppError(
-      "Detail biaya hanya bisa dihapus saat status draft atau revision",
-      422,
-      "UNPROCESSABLE",
-    )
   }
-
-  const deleted = await repo.removeDetail(detailId)
-  if (!deleted) {
-    throw new AppError("Detail tidak ditemukan", 404, "NOT_FOUND")
-  }
+  return updated
 }
 
 export async function submitFormA2ToManager(user: JwtPayload, id: string) {
@@ -165,14 +158,9 @@ export async function submitFormA2ToManager(user: JwtPayload, id: string) {
     )
   }
 
-  if (!form.diagnosis.trim()) {
-    throw new AppError(
-      "Diagnosis wajib diisi sebelum mengajukan",
-      422,
-      "UNPROCESSABLE",
-    )
-  }
-
+  // Diagnosis & rincian biaya sudah wajib diisi staff cabang sejak Form CR9 dibuat
+  // (lihat createFormCr9Schema) — di sini cukup pastikan berita acara sudah diupload
+  // staff SPM sebelum diteruskan ke approval chain.
   if (!form.news_url) {
     throw new AppError(
       "Berita acara wajib diupload sebelum mengajukan",
@@ -181,32 +169,44 @@ export async function submitFormA2ToManager(user: JwtPayload, id: string) {
     )
   }
 
-  if (!form.details || form.details.length === 0) {
+  // Pengajuan pertama kali (draft → pending) — selalu mulai dari step Nautica.
+  if (form.status === "draft") {
+    const updated = await repo.submitToManager(id, user.id)
+    if (!updated) {
+      throw new AppError(
+        "Gagal mengajukan Form A2",
+        500,
+        "INTERNAL_SERVER_ERROR",
+      )
+    }
+    return updated
+  }
+
+  // Resubmit setelah revisi — harus kembali ke step yang sebelumnya minta
+  // revisi (bukan selalu Nautica), dan hanya kalau revisinya memang
+  // ditujukan ke staff SPM (revisi berita acara).
+  const activeRevision = await repo.findActiveRevision(id)
+  if (!activeRevision) {
     throw new AppError(
-      "Minimal satu uraian biaya wajib diisi sebelum mengajukan",
+      "Tidak ditemukan data revisi aktif untuk form ini",
+      422,
+      "UNPROCESSABLE",
+    )
+  }
+  if (activeRevision.target_role !== "staff_spm") {
+    throw new AppError(
+      "Form ini menunggu revisi data kelengkapan dari staff cabang, belum bisa diajukan oleh SPM",
       422,
       "UNPROCESSABLE",
     )
   }
 
-  // Validasi sum detail = amount CR9
-  const cr9 = await cr9Repo.findById(form.form_cr9_id)
-  if (cr9) {
-    const sumDetails = form.details.reduce(
-      (acc, d) => acc + Number(d.amount),
-      0,
-    )
-    const cr9Amount = Number(cr9.amount)
-    if (Math.abs(sumDetails - cr9Amount) > 0.01) {
-      throw new AppError(
-        `Total uraian biaya (${sumDetails.toLocaleString("id-ID")}) harus sama dengan jumlah di Form CR9 (${cr9Amount.toLocaleString("id-ID")})`,
-        422,
-        "UNPROCESSABLE",
-      )
-    }
-  }
-
-  const updated = await repo.submitToManager(id, user.id)
+  const updated = await repo.resolveRevisionAndResubmit(
+    id,
+    activeRevision.id,
+    activeRevision.step,
+    user.id,
+  )
   if (!updated) {
     throw new AppError("Gagal mengajukan Form A2", 500, "INTERNAL_SERVER_ERROR")
   }

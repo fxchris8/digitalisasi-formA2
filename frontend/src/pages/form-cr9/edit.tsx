@@ -1,8 +1,11 @@
 import { useEffect, useState } from "react"
 import { useNavigate, useParams } from "react-router"
 import { toast } from "sonner"
+import { getFormA2ByCr9Id } from "@/api/form-a2"
 import { getFormCr9, updateFormCr9 } from "@/api/form-cr9"
+import { CostDetailSection } from "@/components/form-cr9/cost-detail-section"
 import { SeamanAutocompleteField } from "@/components/form-cr9/seaman-autocomplete-field"
+import { ShipAutocompleteField } from "@/components/form-cr9/ship-autocomplete-field"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -13,9 +16,11 @@ import {
 } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
 import { getStorageUrl, uploadFile } from "@/lib/storage"
 import { ROUTES } from "@/routes/config"
-import type { FormCr9, UpdateFormCr9Payload } from "@/types/form-cr9"
+import type { CostDetailItem, UpdateFormCr9Payload } from "@/types/form-cr9"
+import type { Hospital } from "@/types/hospital"
 import type { Seaman } from "@/types/seaman"
 import { formCr9Schema } from "@/validations/form-cr9.validation"
 
@@ -30,7 +35,8 @@ type FormState = {
   complaint: string
   cr9_url: string // stored path, e.g. "cr9/uuid.pdf"
   receipt_url: string // stored path, e.g. "receipt/uuid.pdf"
-  amount: string
+  diagnosis: string
+  hospital_id: string
 }
 
 type FormErrors = Partial<Record<keyof FormState, string>>
@@ -82,20 +88,6 @@ function UploadHint({ status }: { status: UploadStatus }) {
   return null
 }
 
-function toFormState(form: FormCr9): FormState {
-  return {
-    seafarer_code: form.seafarer_code,
-    seaman_code: form.seaman_code,
-    seaman_name: form.seaman_name,
-    position: form.position,
-    ship: form.ship,
-    complaint: form.complaint,
-    cr9_url: form.cr9_url,
-    receipt_url: form.receipt_url,
-    amount: form.amount,
-  }
-}
-
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function FormCr9EditPage() {
@@ -108,20 +100,53 @@ export default function FormCr9EditPage() {
   const [submitting, setSubmitting] = useState(false)
   const [formNumber, setFormNumber] = useState("")
 
+  const [hospitalLabel, setHospitalLabel] = useState("")
+  const [details, setDetails] = useState<CostDetailItem[]>([])
+  const [detailsError, setDetailsError] = useState<string | undefined>()
+
   const [cr9Status, setCr9Status] = useState<UploadStatus>("idle")
   const [receiptStatus, setReceiptStatus] = useState<UploadStatus>("idle")
 
   useEffect(() => {
     if (!id) return
-    getFormCr9(id)
-      .then((data) => {
-        if (data.status === "approved") {
+    Promise.all([getFormCr9(id), getFormA2ByCr9Id(id)])
+      .then(([cr9, a2]) => {
+        if (cr9.status === "approved") {
           toast.error("Form yang sudah disetujui tidak dapat diedit")
           navigate(`/form-cr9/${id}`)
           return
         }
-        setForm(toFormState(data))
-        setFormNumber(data.form_number)
+        if (cr9.status !== "draft" && !cr9.needs_cabang_revision) {
+          toast.error(
+            "Form CR9 hanya bisa diubah saat draft atau sedang direvisi (data kelengkapan)",
+          )
+          navigate(`/form-cr9/${id}`)
+          return
+        }
+        setForm({
+          seafarer_code: cr9.seafarer_code,
+          seaman_code: cr9.seaman_code,
+          seaman_name: cr9.seaman_name,
+          position: cr9.position,
+          ship: cr9.ship,
+          complaint: cr9.complaint,
+          cr9_url: cr9.cr9_url,
+          receipt_url: cr9.receipt_url,
+          diagnosis: a2.diagnosis,
+          hospital_id: a2.details[0]?.hospital_id ?? "",
+        })
+        setFormNumber(cr9.form_number)
+        if (a2.details[0]) {
+          setHospitalLabel(
+            `${a2.details[0].hospital_name} — ${a2.details[0].hospital_city}`,
+          )
+        }
+        setDetails(
+          a2.details.map((d) => ({
+            description: d.description,
+            amount: Number(d.amount),
+          })),
+        )
       })
       .catch(() => {
         toast.error("Gagal memuat Form CR9")
@@ -158,6 +183,11 @@ export default function FormCr9EditPage() {
     }))
   }
 
+  function handleHospitalSelect(hospital: Hospital) {
+    setHospitalLabel(`${hospital.name} — ${hospital.city}`)
+    handleChange("hospital_id", hospital.id)
+  }
+
   async function handleFileChange(
     e: React.ChangeEvent<HTMLInputElement>,
     folder: string,
@@ -174,9 +204,11 @@ export default function FormCr9EditPage() {
       const storedPath = await uploadFile(file, folder)
       handleChange(field, storedPath)
       setStatus("done")
-    } catch {
+    } catch (err) {
       setStatus("error")
-      toast.error("Gagal mengupload file, coba lagi")
+      toast.error(
+        err instanceof Error ? err.message : "Gagal mengupload file, coba lagi",
+      )
     }
   }
 
@@ -185,7 +217,16 @@ export default function FormCr9EditPage() {
     if (!form || !id) return
 
     const errs = validate(form)
-    if (Object.keys(errs).length > 0) {
+
+    let detailsErr: string | undefined
+    if (details.length === 0) {
+      detailsErr = "Minimal satu uraian biaya wajib diisi"
+    } else if (details.some((d) => !d.description.trim() || d.amount <= 0)) {
+      detailsErr = "Setiap uraian harus punya deskripsi dan jumlah > 0"
+    }
+    setDetailsError(detailsErr)
+
+    if (Object.keys(errs).length > 0 || detailsErr) {
       setErrors(errs)
       return
     }
@@ -201,7 +242,12 @@ export default function FormCr9EditPage() {
         complaint: form.complaint.trim(),
         cr9_url: form.cr9_url,
         receipt_url: form.receipt_url,
-        amount: Number(form.amount),
+        diagnosis: form.diagnosis.trim(),
+        hospital_id: form.hospital_id,
+        details: details.map((d) => ({
+          description: d.description.trim(),
+          amount: d.amount,
+        })),
       }
       await updateFormCr9(id, payload)
       toast.success("Form CR9 berhasil diupdate")
@@ -238,7 +284,7 @@ export default function FormCr9EditPage() {
       </div>
 
       {/* Form */}
-      <form onSubmit={handleSubmit}>
+      <form onSubmit={handleSubmit} className="space-y-6">
         <Card>
           <CardHeader>
             <CardTitle>Informasi Form CR9</CardTitle>
@@ -250,53 +296,61 @@ export default function FormCr9EditPage() {
           <CardContent className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
               <SeamanAutocompleteField
-                id="seafarer_code"
-                label="Seafarer Code"
-                searchBy="seafarercode"
-                value={form.seafarer_code}
-                onChange={(v) => handleChange("seafarer_code", v)}
-                onSelect={handleSeamanSelect}
-                error={errors.seafarer_code}
-                disabled={submitting}
-              />
-
-              <SeamanAutocompleteField
                 id="seaman_code"
                 label="Seaman Code"
-                searchBy="seamancode"
-                value={form.seaman_code}
-                onChange={(v) => handleChange("seaman_code", v)}
+                value={
+                  form.seaman_code
+                    ? `${form.seaman_code} - ${form.seaman_name}`
+                    : ""
+                }
                 onSelect={handleSeamanSelect}
                 error={errors.seaman_code}
                 disabled={submitting}
               />
 
-              <SeamanAutocompleteField
+              <Field
+                id="seafarer_code"
+                label="Seafarer Code"
+                error={errors.seafarer_code}
+              >
+                <Input
+                  id="seafarer_code"
+                  placeholder="Terisi otomatis setelah pilih Seaman Code"
+                  value={form.seafarer_code}
+                  disabled
+                />
+              </Field>
+
+              <Field
                 id="seaman_name"
                 label="Seaman Name"
-                searchBy="name"
-                value={form.seaman_name}
-                onChange={(v) => handleChange("seaman_name", v)}
-                onSelect={handleSeamanSelect}
                 error={errors.seaman_name}
-                disabled={submitting}
-              />
+              >
+                <Input
+                  id="seaman_name"
+                  placeholder="Terisi otomatis setelah pilih Seaman Code"
+                  value={form.seaman_name}
+                  disabled
+                />
+              </Field>
 
               <Field id="position" label="Jabatan" error={errors.position}>
                 <Input
                   id="position"
+                  placeholder="Terisi otomatis setelah pilih Seaman Code"
                   value={form.position}
-                  onChange={(e) => handleChange("position", e.target.value)}
+                  disabled
                 />
               </Field>
 
-              <Field id="ship" label="Nama Kapal" error={errors.ship}>
-                <Input
-                  id="ship"
-                  value={form.ship}
-                  onChange={(e) => handleChange("ship", e.target.value)}
-                />
-              </Field>
+              <ShipAutocompleteField
+                id="ship"
+                label="Nama Kapal"
+                value={form.ship}
+                onChange={(v) => handleChange("ship", v)}
+                error={errors.ship}
+                disabled={submitting}
+              />
 
               <Field
                 id="complaint"
@@ -380,49 +434,51 @@ export default function FormCr9EditPage() {
                 )}
                 <UploadHint status={receiptStatus} />
               </Field>
-
-              <Field
-                id="amount"
-                label="Jumlah Biaya (Rp)"
-                error={errors.amount}
-              >
-                <Input
-                  id="amount"
-                  type="text"
-                  inputMode="numeric"
-                  placeholder="Cth: 150000"
-                  value={form.amount}
-                  onChange={(e) =>
-                    handleChange("amount", e.target.value.replace(/\D/g, ""))
-                  }
-                />
-              </Field>
             </div>
 
-            {/* Actions */}
-            <div className="flex justify-end gap-3 pt-2">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => navigate(`/form-cr9/${id}`)}
-                disabled={submitting}
-              >
-                Batal
-              </Button>
-              <Button
-                type="submit"
-                disabled={
-                  submitting ||
-                  cr9Status === "uploading" ||
-                  receiptStatus === "uploading"
-                }
-                className="bg-green-600 hover:bg-green-700 text-white"
-              >
-                {submitting ? "Menyimpan..." : "Simpan Perubahan"}
-              </Button>
-            </div>
+            <Field id="diagnosis" label="Diagnosis" error={errors.diagnosis}>
+              <Textarea
+                id="diagnosis"
+                rows={3}
+                value={form.diagnosis}
+                onChange={(e) => handleChange("diagnosis", e.target.value)}
+              />
+            </Field>
           </CardContent>
         </Card>
+
+        <CostDetailSection
+          hospitalLabel={hospitalLabel}
+          onHospitalSelect={handleHospitalSelect}
+          hospitalError={errors.hospital_id}
+          details={details}
+          onDetailsChange={setDetails}
+          detailsError={detailsError}
+          disabled={submitting}
+        />
+
+        {/* Actions */}
+        <div className="flex justify-end gap-3">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => navigate(`/form-cr9/${id}`)}
+            disabled={submitting}
+          >
+            Batal
+          </Button>
+          <Button
+            type="submit"
+            disabled={
+              submitting ||
+              cr9Status === "uploading" ||
+              receiptStatus === "uploading"
+            }
+            className="bg-green-600 hover:bg-green-700 text-white"
+          >
+            {submitting ? "Menyimpan..." : "Simpan Perubahan"}
+          </Button>
+        </div>
       </form>
     </div>
   )
