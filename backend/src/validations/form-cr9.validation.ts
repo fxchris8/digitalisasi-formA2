@@ -1,5 +1,12 @@
 import { z } from "zod"
 
+export const costDetailItemSchema = z.object({
+  description: z.string().min(1, "Uraian wajib diisi"),
+  amount: z
+    .number({ error: "Jumlah harus berupa angka" })
+    .positive("Jumlah harus lebih dari 0"),
+})
+
 export const createFormCr9Schema = z.object({
   seafarer_code: z.string().min(1, "Seafarer code wajib diisi"),
   seaman_code: z.string().min(1, "Seaman code wajib diisi"),
@@ -9,9 +16,11 @@ export const createFormCr9Schema = z.object({
   complaint: z.string().min(1, "Jenis keluhan wajib diisi"),
   cr9_url: z.string().min(1, "Dokumen CR9 wajib diupload"),
   receipt_url: z.string().min(1, "Kwitansi wajib diupload"),
-  amount: z
-    .number({ error: "Jumlah harus berupa angka" })
-    .positive("Jumlah harus lebih dari 0"),
+  diagnosis: z.string().min(1, "Diagnosis wajib diisi"),
+  hospital_id: z.string().uuid("Rumah sakit wajib dipilih"),
+  details: z
+    .array(costDetailItemSchema)
+    .min(1, "Minimal satu uraian biaya wajib diisi"),
   branch_office: z.string().min(1).optional(),
 })
 

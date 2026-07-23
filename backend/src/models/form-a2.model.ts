@@ -1,3 +1,5 @@
+import type { HospitalCategory } from "@/models/hospital.model"
+
 export type FormA2Status =
   | "draft"
   | "submitted"
@@ -8,6 +10,7 @@ export type FormA2Status =
 
 export type ApprovalStep = "spm" | "nautica" | "finance"
 export type ApprovalStatus = "pending" | "approved" | "revision" | "rejected"
+export type RevisionTargetRole = "staff_cabang" | "staff_spm"
 
 export interface FormA2 {
   id: string
@@ -34,10 +37,27 @@ export interface FormA2Detail {
   id: string
   form_a2_id: string
   description: string
-  hospital_name: string
-  hospital_category: string
+  hospital_id: string
   amount: string // NUMERIC dari pg
   created_at: Date
+  // Hasil JOIN ke hospitals — dipakai untuk display, sama untuk semua baris dalam 1 form
+  hospital_name: string
+  hospital_category: HospitalCategory
+  hospital_province: string
+  hospital_city: string
+}
+
+export interface FormA2Revision {
+  id: string
+  form_a2_id: string
+  step: ApprovalStep
+  target_role: RevisionTargetRole
+  requested_by: string
+  requested_at: Date
+  notes: string | null
+  resolved_by: string | null
+  resolved_at: Date | null
+  is_resolved: boolean
 }
 
 export interface FormA2ApprovalLog {
@@ -68,4 +88,5 @@ export interface FormA2WithCr9 extends FormA2 {
 export interface FormA2WithDetails extends FormA2WithCr9 {
   details: FormA2Detail[]
   approval_logs: FormA2ApprovalLog[]
+  active_revision: FormA2Revision | null
 }

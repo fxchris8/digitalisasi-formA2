@@ -7,6 +7,9 @@ export const approveSchema = z.object({
 
 export const revisionSchema = z.object({
   notes: z.string().min(1, "Catatan revisi wajib diisi"),
+  target: z.enum(["staff_cabang", "staff_spm"], {
+    error: "Target revisi wajib dipilih (data kelengkapan / berita acara)",
+  }),
 })
 
 export const rejectSchema = z.object({

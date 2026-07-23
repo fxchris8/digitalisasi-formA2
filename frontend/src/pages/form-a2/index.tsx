@@ -2,6 +2,7 @@ import { AlertTriangle } from "lucide-react"
 import { useCallback, useEffect, useState } from "react"
 import { Link, useNavigate } from "react-router"
 import { toast } from "sonner"
+import { listPendingApproval } from "@/api/approval"
 import { listFormA2, submitFormA2 } from "@/api/form-a2"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -34,7 +35,7 @@ import {
 } from "@/components/ui/table"
 import { useAuth } from "@/contexts/auth.context"
 import { formatDate } from "@/lib/format"
-import { ROLES } from "@/lib/rbac"
+import { getManagerStep, ROLES } from "@/lib/rbac"
 import { ROUTES } from "@/routes/config"
 import type { FormA2, FormA2Status } from "@/types/form-a2"
 
@@ -70,6 +71,14 @@ const STATUS_CONFIG: Record<
   revision: { label: "Revisi", className: "bg-orange-100 text-orange-700" },
   approved: { label: "Disetujui", className: "bg-green-100 text-green-700" },
   rejected: { label: "Ditolak", className: "bg-red-100 text-red-700" },
+}
+
+// Tujuan pengajuan tidak selalu Manager Nautica — kalau ini resubmit setelah
+// revisi, tujuannya adalah step yang tadi minta revisi (bisa SPM atau Finance).
+const STEP_LABEL: Record<string, string> = {
+  nautica: "Manager Nautica",
+  spm: "Manager SPM",
+  finance: "Finance",
 }
 
 function StatusBadge({ status }: { status: FormA2Status }) {
@@ -116,14 +125,25 @@ export default function FormA2Page() {
   const [loading, setLoading] = useState(false)
   const [submitTarget, setSubmitTarget] = useState<FormA2 | null>(null)
   const [submitting, setSubmitting] = useState(false)
+  const [onlyPendingApproval, setOnlyPendingApproval] = useState(false)
 
   const canManage =
     user?.role === ROLES.ADMIN ||
     (user?.role === ROLES.STAFF && user?.department === "spm")
 
+  const myStep = user ? getManagerStep(user) : null
+
   const fetchForms = useCallback(async () => {
     setLoading(true)
     try {
+      if (onlyPendingApproval && myStep) {
+        const rows = await listPendingApproval()
+        setForms(rows)
+        setTotalPages(1)
+        setTotalRows(rows.length)
+        return
+      }
+
       const result = await listFormA2({
         page: currentPage,
         limit: PAGE_SIZE,
@@ -140,7 +160,7 @@ export default function FormA2Page() {
     } finally {
       setLoading(false)
     }
-  }, [currentPage, applied])
+  }, [currentPage, applied, onlyPendingApproval, myStep])
 
   useEffect(() => {
     fetchForms()
@@ -165,9 +185,12 @@ export default function FormA2Page() {
     if (!submitTarget) return
     setSubmitting(true)
     try {
-      await submitFormA2(submitTarget.id)
+      const result = await submitFormA2(submitTarget.id)
       setSubmitTarget(null)
-      toast.success("Form A2 berhasil diajukan ke Manager Nautica")
+      const destination = result.current_step
+        ? (STEP_LABEL[result.current_step] ?? result.current_step)
+        : "manager"
+      toast.success(`Form A2 berhasil diajukan ke ${destination}`)
       fetchForms()
     } catch (err) {
       toast.error(
@@ -191,11 +214,31 @@ export default function FormA2Page() {
             Informasi Pengajuan Form A2 untuk Klaim Asuransi Kesehatan Seaman.
           </p>
         </div>
-        {canManage && (
-          <Button asChild className="bg-red-600 hover:bg-red-700 text-white">
-            <Link to={ROUTES.formA2Create.path}>Buat Baru</Link>
-          </Button>
-        )}
+        <div className="flex items-center gap-2">
+          {myStep && (
+            <Button
+              variant={onlyPendingApproval ? "default" : "outline"}
+              className={
+                onlyPendingApproval
+                  ? "bg-yellow-500 hover:bg-yellow-600 text-white"
+                  : ""
+              }
+              onClick={() => {
+                setOnlyPendingApproval((prev) => !prev)
+                setCurrentPage(1)
+              }}
+            >
+              {onlyPendingApproval
+                ? "Menampilkan: Perlu Approval Saya"
+                : "Tampilkan yang Perlu Approval Saya"}
+            </Button>
+          )}
+          {canManage && (
+            <Button asChild className="bg-red-600 hover:bg-red-700 text-white">
+              <Link to={ROUTES.formA2Create.path}>Buat Baru</Link>
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Filter */}
@@ -332,7 +375,14 @@ export default function FormA2Page() {
                     {formatDate(form.created_at)}
                   </TableCell>
                   <TableCell>
-                    <StatusBadge status={form.status} />
+                    <div className="flex items-center gap-1.5">
+                      <StatusBadge status={form.status} />
+                      {myStep && form.current_step === myStep && (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-yellow-100 text-yellow-800">
+                          Perlu Approval Anda
+                        </span>
+                      )}
+                    </div>
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center justify-center gap-2">
@@ -363,7 +413,7 @@ export default function FormA2Page() {
                           form.status === "revision") && (
                           <Button
                             size="xs"
-                            title="Ajukan ke Manager Nautica"
+                            title="Ajukan ke Manager"
                             className="text-white text-[10px] bg-green-600 hover:bg-green-700"
                             onClick={() => setSubmitTarget(form)}
                           >
@@ -459,8 +509,8 @@ export default function FormA2Page() {
             <AlertTriangle className="h-14 w-14 text-green-600 mb-2" />
             <DialogTitle>Ajukan Form A2?</DialogTitle>
             <DialogDescription>
-              Apakah Anda yakin ingin mengajukan form ini ke Manager SPM? Form
-              tidak dapat diedit setelah diajukan.
+              Apakah Anda yakin ingin mengajukan form ini ke manager? Form tidak
+              dapat diedit setelah diajukan.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="justify-center sm:justify-center gap-2">

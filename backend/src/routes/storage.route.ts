@@ -5,7 +5,7 @@ import { authenticate } from "@/middlewares/auth"
 
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 3 * 1024 * 1024 }, // 3 MB
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10 MB — nota/kwitansi hasil foto/scan sering lebih besar dari 3MB
   fileFilter(_req, file, cb) {
     if (file.mimetype === "application/pdf") {
       cb(null, true)

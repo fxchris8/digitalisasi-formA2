@@ -122,7 +122,7 @@ export function Timeline({ entries }: { entries: TimelineEntry[] }) {
     <div>
       {entries.map((entry, i) => (
         <TimelineItem
-          key={entry.title}
+          key={`${i}-${entry.title}`}
           entry={entry}
           isLast={i === entries.length - 1}
         />

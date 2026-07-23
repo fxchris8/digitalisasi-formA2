@@ -56,7 +56,7 @@ export async function createFormCr9Handler(
     }
     const dto = createFormCr9Schema.parse(req.body)
     const form = await formCr9Service.createFormCr9(req.user, dto)
-    sendSuccess(res, "Form CR9 berhasil dibuat", form, 201)
+    sendSuccess(res, "Form CR9 dan Form A2 berhasil dibuat", form, 201)
   } catch (err) {
     next(err)
   }
@@ -93,7 +93,11 @@ export async function submitFormCr9Handler(
     }
     const id = req.params.id as string
     const result = await formCr9Service.submitFormCr9(req.user, id)
-    sendSuccess(res, "Form CR9 berhasil diajukan dan Form A2 dibuat", result)
+    sendSuccess(
+      res,
+      "Form CR9 berhasil diajukan, menunggu berita acara dari staff SPM",
+      result,
+    )
   } catch (err) {
     next(err)
   }

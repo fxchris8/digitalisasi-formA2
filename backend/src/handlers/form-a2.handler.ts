@@ -3,8 +3,8 @@ import * as formA2Service from "@/services/form-a2.service"
 import { AppError } from "@/utils/app-error"
 import { sendSuccess } from "@/utils/response"
 import {
-  addDetailSchema,
   listFormA2Schema,
+  requestCabangRevisionSchema,
   updateFormA2Schema,
 } from "@/validations/form-a2.validation"
 
@@ -82,7 +82,7 @@ export async function updateFormA2Handler(
   }
 }
 
-export async function addDetailHandler(
+export async function requestCabangRevisionHandler(
   req: Request,
   res: Response,
   next: NextFunction,
@@ -93,28 +93,9 @@ export async function addDetailHandler(
       return
     }
     const id = req.params.id as string
-    const dto = addDetailSchema.parse(req.body)
-    const detail = await formA2Service.addFormA2Detail(req.user, id, dto)
-    sendSuccess(res, "Detail biaya berhasil ditambahkan", detail, 201)
-  } catch (err) {
-    next(err)
-  }
-}
-
-export async function removeDetailHandler(
-  req: Request,
-  res: Response,
-  next: NextFunction,
-): Promise<void> {
-  try {
-    if (!req.user) {
-      next(new AppError("Unauthorized", 401, "UNAUTHORIZED"))
-      return
-    }
-    const id = req.params.id as string
-    const detailId = req.params.detailId as string
-    await formA2Service.removeFormA2Detail(req.user, id, detailId)
-    sendSuccess(res, "Detail biaya berhasil dihapus")
+    const dto = requestCabangRevisionSchema.parse(req.body)
+    const result = await formA2Service.requestCabangRevision(req.user, id, dto)
+    sendSuccess(res, "Revisi berhasil diajukan ke staff cabang", result)
   } catch (err) {
     next(err)
   }
@@ -132,7 +113,15 @@ export async function submitFormA2Handler(
     }
     const id = req.params.id as string
     const result = await formA2Service.submitFormA2ToManager(req.user, id)
-    sendSuccess(res, "Form A2 berhasil diajukan ke manager Nautica", result)
+    const stepLabel: Record<string, string> = {
+      nautica: "Manager Nautica",
+      spm: "Manager SPM",
+      finance: "Finance",
+    }
+    const destination = result.current_step
+      ? (stepLabel[result.current_step] ?? result.current_step)
+      : "manager"
+    sendSuccess(res, `Form A2 berhasil diajukan ke ${destination}`, result)
   } catch (err) {
     next(err)
   }

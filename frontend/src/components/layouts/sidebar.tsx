@@ -1,8 +1,9 @@
 import {
+  Anchor,
   Building2,
-  ClipboardCheck,
   ClipboardList,
   FileText,
+  Hospital,
   LayoutDashboard,
   ScrollText,
   Ship,
@@ -47,6 +48,18 @@ const NAV_ITEMS: NavItem[] = [
     permission: "manage:branch-offices",
   },
   {
+    label: ROUTES.hospital.label,
+    icon: Hospital,
+    path: ROUTES.hospital.path,
+    permission: "manage:hospitals",
+  },
+  {
+    label: ROUTES.ship.label,
+    icon: Anchor,
+    path: ROUTES.ship.path,
+    permission: "manage:ships",
+  },
+  {
     label: ROUTES.formCr9.label,
     icon: ClipboardList,
     path: ROUTES.formCr9.path,
@@ -57,12 +70,6 @@ const NAV_ITEMS: NavItem[] = [
     icon: FileText,
     path: ROUTES.formA2.path,
     permission: "view:form-a2",
-  },
-  {
-    label: ROUTES.approval.label,
-    icon: ClipboardCheck,
-    path: ROUTES.approval.path,
-    permission: "view:approval",
   },
   {
     label: ROUTES.approvalLog.label,

@@ -1,4 +1,4 @@
-import { AlertTriangle } from "lucide-react"
+import { AlertTriangle, Info } from "lucide-react"
 import { useEffect, useState } from "react"
 import { useNavigate, useParams } from "react-router"
 import { toast } from "sonner"
@@ -68,7 +68,8 @@ export default function FormCr9DetailPage() {
     (user?.role === ROLES.STAFF &&
       (user?.department === "cabang" || user?.department === "spm"))
 
-  const canEdit = canManage && form?.status === "draft"
+  const canEdit =
+    canManage && (form?.status === "draft" || form?.needs_cabang_revision)
   const canSubmit = canManage && form?.status === "draft"
 
   async function handleSubmit() {
@@ -149,6 +150,22 @@ export default function FormCr9DetailPage() {
           </div>
         )}
       </div>
+
+      {form.needs_cabang_revision && (
+        <div className="flex items-start gap-3 rounded-lg border border-orange-200 bg-orange-50 px-4 py-3 text-sm text-orange-800">
+          <Info className="h-5 w-5 shrink-0 mt-0.5" />
+          <div>
+            <p className="font-medium">
+              Staff SPM meminta revisi data kelengkapan
+            </p>
+            {form.revision_notes && (
+              <p className="mt-0.5 text-orange-700">
+                Catatan: {form.revision_notes}
+              </p>
+            )}
+          </div>
+        </div>
+      )}
 
       <Card>
         <CardHeader>

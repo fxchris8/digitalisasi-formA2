@@ -30,4 +30,10 @@ export interface FormCr9 {
 
 export interface FormCr9WithCreator extends FormCr9 {
   creator_name: string
+  // Info Form A2 terkait (join), dipakai untuk menampilkan status "Perlu Revisi"
+  // di list/detail CR9 saat revisi Form A2 ditujukan ke staff cabang.
+  form_a2_id: string | null
+  a2_status: string | null
+  needs_cabang_revision: boolean
+  revision_notes: string | null
 }

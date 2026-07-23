@@ -1,24 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import { useNavigate, useParams } from "react-router"
 import { toast } from "sonner"
-import {
-  addFormA2Detail,
-  getFormA2,
-  removeFormA2Detail,
-  updateFormA2,
-} from "@/api/form-a2"
+import { getFormA2, updateFormA2 } from "@/api/form-a2"
 import { Button } from "@/components/ui/button"
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card"
+import { Card, CardContent } from "@/components/ui/card"
 import { InfoRow } from "@/components/ui/info-row"
-import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import {
   Table,
   TableBody,
@@ -27,22 +14,12 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { Textarea } from "@/components/ui/textarea"
 import { useAuth } from "@/contexts/auth.context"
 import { formatRupiah } from "@/lib/format"
 import { ROLES } from "@/lib/rbac"
 import { getStorageUrl, MAX_FILE_SIZE, uploadFile } from "@/lib/storage"
 import { ROUTES } from "@/routes/config"
-import type { AddDetailPayload, FormA2WithDetails } from "@/types/form-a2"
-
-// ─── Constants ────────────────────────────────────────────────────────────────
-
-const EMPTY_DETAIL: AddDetailPayload = {
-  description: "",
-  hospital_name: "",
-  hospital_category: "",
-  amount: 0,
-}
+import type { FormA2WithDetails } from "@/types/form-a2"
 
 // ─── Types & helpers ──────────────────────────────────────────────────────────
 
@@ -71,34 +48,22 @@ export default function FormA2EditPage() {
 
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  // ── Remote state ────────────────────────────────────────────────────────────
   const [form, setForm] = useState<FormA2WithDetails | null>(null)
   const [loading, setLoading] = useState(true)
 
-  // ── Info fields ─────────────────────────────────────────────────────────────
-  const [diagnosis, setDiagnosis] = useState("")
   const [newsFile, setNewsFile] = useState<File | null>(null)
   const [newsStatus, setNewsStatus] = useState<UploadStatus>("idle")
   const [saving, setSaving] = useState(false)
 
-  // ── Detail items ─────────────────────────────────────────────────────────────
-  const [newDetail, setNewDetail] = useState<AddDetailPayload>(EMPTY_DETAIL)
-  const [addingDetail, setAddingDetail] = useState(false)
-  const [deletingDetailId, setDeletingDetailId] = useState<string | null>(null)
-
-  // ── Access guard ─────────────────────────────────────────────────────────────
   const canManage =
     user?.role === ROLES.ADMIN ||
     (user?.role === ROLES.STAFF && user?.department === "spm")
-
-  // ─── Load ────────────────────────────────────────────────────────────────────
 
   const loadForm = useCallback(async () => {
     if (!id) return
     try {
       const data = await getFormA2(id)
       setForm(data)
-      setDiagnosis(data.diagnosis ?? "")
     } catch {
       toast.error("Gagal memuat Form A2")
     }
@@ -109,18 +74,24 @@ export default function FormA2EditPage() {
     loadForm().finally(() => setLoading(false))
   }, [loadForm])
 
-  // Redirect if not editable
   useEffect(() => {
     if (form && form.status !== "draft" && form.status !== "revision") {
       toast.error("Form A2 tidak dapat diedit pada status ini")
       navigate(`/form-a2/${id}`)
+      return
+    }
+    if (
+      form?.status === "revision" &&
+      form.active_revision?.target_role !== "staff_spm"
+    ) {
+      toast.error("Form ini menunggu revisi data kelengkapan dari staff cabang")
+      navigate(`/form-a2/${id}`)
+      return
     }
     if (form && !canManage) {
       navigate(ROUTES.formA2.path)
     }
   }, [form, canManage, id, navigate])
-
-  // ─── Handlers ────────────────────────────────────────────────────────────────
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
@@ -131,7 +102,7 @@ export default function FormA2EditPage() {
       return
     }
     if (file.size > MAX_FILE_SIZE) {
-      toast.error("Ukuran file maksimal 3 MB")
+      toast.error(`Ukuran file maksimal ${MAX_FILE_SIZE / 1024 / 1024} MB`)
       e.target.value = ""
       return
     }
@@ -139,29 +110,25 @@ export default function FormA2EditPage() {
   }
 
   async function handleSaveInfo() {
-    if (!id) return
+    if (!id || !newsFile) return
     setSaving(true)
     try {
-      let newsUrl = form?.news_url ?? undefined
-
-      if (newsFile) {
-        setNewsStatus("uploading")
-        try {
-          newsUrl = await uploadFile(newsFile, "berita-acara")
-          setNewsStatus("done")
-        } catch {
-          setNewsStatus("error")
-          toast.error("Gagal mengupload berita acara")
-          return
-        }
+      setNewsStatus("uploading")
+      let newsUrl: string
+      try {
+        newsUrl = await uploadFile(newsFile, "berita-acara")
+        setNewsStatus("done")
+      } catch (err) {
+        setNewsStatus("error")
+        toast.error(
+          err instanceof Error ? err.message : "Gagal mengupload berita acara",
+        )
+        return
       }
 
-      await updateFormA2(id, {
-        diagnosis: diagnosis || undefined,
-        news_url: newsUrl,
-      })
+      await updateFormA2(id, { news_url: newsUrl })
 
-      toast.success("Informasi Form A2 berhasil disimpan")
+      toast.success("Berita acara berhasil disimpan")
       setNewsFile(null)
       if (fileInputRef.current) fileInputRef.current.value = ""
       setNewsStatus("idle")
@@ -174,58 +141,6 @@ export default function FormA2EditPage() {
       setSaving(false)
     }
   }
-
-  async function handleAddDetail() {
-    if (!id) return
-    if (!newDetail.description.trim()) {
-      toast.error("Uraian wajib diisi")
-      return
-    }
-    if (!newDetail.hospital_name.trim()) {
-      toast.error("Nama rumah sakit wajib diisi")
-      return
-    }
-    if (!newDetail.hospital_category.trim()) {
-      toast.error("Kategori rumah sakit wajib diisi")
-      return
-    }
-    if (newDetail.amount <= 0) {
-      toast.error("Jumlah harus lebih dari 0")
-      return
-    }
-
-    setAddingDetail(true)
-    try {
-      await addFormA2Detail(id, newDetail)
-      toast.success("Detail biaya berhasil ditambahkan")
-      setNewDetail(EMPTY_DETAIL)
-      await loadForm()
-    } catch (err) {
-      toast.error(
-        err instanceof Error ? err.message : "Gagal menambah detail biaya",
-      )
-    } finally {
-      setAddingDetail(false)
-    }
-  }
-
-  async function handleRemoveDetail(detailId: string) {
-    if (!id) return
-    setDeletingDetailId(detailId)
-    try {
-      await removeFormA2Detail(id, detailId)
-      toast.success("Detail biaya berhasil dihapus")
-      await loadForm()
-    } catch (err) {
-      toast.error(
-        err instanceof Error ? err.message : "Gagal menghapus detail biaya",
-      )
-    } finally {
-      setDeletingDetailId(null)
-    }
-  }
-
-  // ─── Render ──────────────────────────────────────────────────────────────────
 
   if (loading) {
     return (
@@ -271,88 +186,25 @@ export default function FormA2EditPage() {
         </CardContent>
       </Card>
 
-      {/* Diagnosis & Berita Acara */}
+      {/* Diagnosis & Detail Biaya — read-only, diisi staff cabang di tahap CR9 */}
       <Card>
-        <CardContent>
-          <div className="grid grid-cols-1 gap-6">
-            <div className="space-y-1.5">
-              <Label htmlFor="diagnosis">Diagnosis</Label>
-              <Textarea
-                id="diagnosis"
-                rows={3}
-                placeholder="Tulis diagnosis medis..."
-                value={diagnosis}
-                onChange={(e) => setDiagnosis(e.target.value)}
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <Label htmlFor="news-file">Berita Acara (PDF)</Label>
-              {form.news_url && newsStatus === "idle" && (
-                <a
-                  href={getStorageUrl(form.news_url)}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="block text-xs text-blue-600 hover:underline mb-1"
-                >
-                  Lihat dokumen saat ini
-                </a>
-              )}
-              <input
-                id="news-file"
-                type="file"
-                accept=".pdf,application/pdf"
-                ref={fileInputRef}
-                disabled={newsStatus === "uploading" || saving}
-                className="block w-full text-sm text-gray-700 border rounded-md p-0.5 cursor-pointer file:mr-3 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-sm file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 disabled:opacity-50"
-                onChange={handleFileChange}
-              />
-              {newsStatus === "idle" && form.news_url && (
-                <p className="text-xs text-muted-foreground">
-                  Pilih file baru untuk mengganti berita acara
-                </p>
-              )}
-              <UploadHint status={newsStatus} />
-            </div>
-
-            <div className="flex justify-end">
-              <Button
-                className="bg-blue-500 hover:bg-blue-600 text-white"
-                disabled={saving || newsStatus === "uploading"}
-                onClick={handleSaveInfo}
-              >
-                {newsStatus === "uploading"
-                  ? "Mengupload..."
-                  : saving
-                    ? "Menyimpan..."
-                    : "Simpan Informasi"}
-              </Button>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Detail Biaya */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Detail Biaya</CardTitle>
-          <CardDescription>
-            Tambah uraian biaya. Total harus sesuai dengan jumlah di Form CR9.
-          </CardDescription>
-        </CardHeader>
         <CardContent className="space-y-4">
-          {/* Tabel detail */}
-          {form.details.length > 0 ? (
+          <div>
+            <Label className="text-xs text-muted-foreground uppercase tracking-wide">
+              Diagnosis (diisi staff cabang)
+            </Label>
+            <p className="mt-1 text-sm">{form.diagnosis}</p>
+          </div>
+
+          {form.details.length > 0 && (
             <div className="rounded-lg border overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow className="bg-muted/40">
                     <TableHead className="w-10 text-center">No</TableHead>
                     <TableHead>Uraian</TableHead>
-                    <TableHead>Nama RS</TableHead>
-                    <TableHead>Kategori RS</TableHead>
+                    <TableHead>Rumah Sakit</TableHead>
                     <TableHead className="text-right">Jumlah</TableHead>
-                    <TableHead className="text-center">Aksi</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -363,151 +215,72 @@ export default function FormA2EditPage() {
                       </TableCell>
                       <TableCell>{d.description}</TableCell>
                       <TableCell className="text-muted-foreground">
-                        {d.hospital_name}
-                      </TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {d.hospital_category}
+                        {d.hospital_name} ({d.hospital_category})
                       </TableCell>
                       <TableCell className="text-right">
                         {formatRupiah(d.amount)}
                       </TableCell>
-                      <TableCell className="text-center">
-                        <Button
-                          size="xs"
-                          className="text-[10px] bg-red-600 hover:bg-red-700 text-white"
-                          disabled={deletingDetailId === d.id}
-                          onClick={() => handleRemoveDetail(d.id)}
-                        >
-                          {deletingDetailId === d.id ? "..." : "HAPUS"}
-                        </Button>
-                      </TableCell>
                     </TableRow>
                   ))}
-                  {/* Total row */}
                   <TableRow className="bg-muted/30 font-semibold">
-                    <TableCell colSpan={4} className="text-right">
+                    <TableCell colSpan={3} className="text-right">
                       Total
                     </TableCell>
                     <TableCell className="text-right">
                       {formatRupiah(totalDetail)}
                     </TableCell>
-                    <TableCell />
                   </TableRow>
                 </TableBody>
               </Table>
             </div>
-          ) : (
-            <p className="text-sm text-muted-foreground italic text-center py-4">
-              Belum ada uraian biaya.
-            </p>
           )}
+        </CardContent>
+      </Card>
 
-          {/* Perbandingan total vs CR9 */}
-          {(() => {
-            const cr9Amount = Number(form.cr9_amount)
-            const isMatch = Math.abs(totalDetail - cr9Amount) <= 0.01
-            return (
-              <div
-                className={`flex items-center justify-between rounded-lg px-4 py-2.5 text-sm border ${
-                  isMatch
-                    ? "bg-green-50 border-green-200 text-green-700"
-                    : "bg-red-50 border-red-200 text-red-700"
-                }`}
+      {/* Berita Acara — satu-satunya yang bisa diisi staff SPM */}
+      <Card>
+        <CardContent>
+          <div className="space-y-1.5">
+            <Label htmlFor="news-file">Berita Acara (PDF)</Label>
+            {form.news_url && newsStatus === "idle" && (
+              <a
+                href={getStorageUrl(form.news_url)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block text-xs text-blue-600 hover:underline mb-1"
               >
-                <span>
-                  {isMatch
-                    ? "Total uraian sesuai dengan jumlah CR9"
-                    : "Total uraian belum sesuai dengan jumlah CR9"}
-                </span>
-                <span className="font-mono font-medium">
-                  {formatRupiah(totalDetail)} / {formatRupiah(cr9Amount)}
-                </span>
-              </div>
-            )
-          })()}
+                Lihat dokumen saat ini
+              </a>
+            )}
+            <input
+              id="news-file"
+              type="file"
+              accept=".pdf,application/pdf"
+              ref={fileInputRef}
+              disabled={newsStatus === "uploading" || saving}
+              className="block w-full text-sm text-gray-700 border rounded-md p-0.5 cursor-pointer file:mr-3 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-sm file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 disabled:opacity-50"
+              onChange={handleFileChange}
+            />
+            {newsStatus === "idle" && form.news_url && (
+              <p className="text-xs text-muted-foreground">
+                Pilih file baru untuk mengganti berita acara
+              </p>
+            )}
+            <UploadHint status={newsStatus} />
+          </div>
 
-          {/* Form tambah detail */}
-          <div className="rounded-lg border p-4 space-y-4 bg-muted/20">
-            <p className="text-sm font-medium">Tambah Uraian Biaya</p>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <Label htmlFor="detail-description">Uraian</Label>
-                <Input
-                  id="detail-description"
-                  placeholder="Contoh: Rawat inap 3 hari"
-                  value={newDetail.description}
-                  onChange={(e) =>
-                    setNewDetail((prev) => ({
-                      ...prev,
-                      description: e.target.value,
-                    }))
-                  }
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="detail-hospital">Nama Rumah Sakit</Label>
-                <Input
-                  id="detail-hospital"
-                  placeholder="Contoh: RS Mitra Keluarga"
-                  value={newDetail.hospital_name}
-                  onChange={(e) =>
-                    setNewDetail((prev) => ({
-                      ...prev,
-                      hospital_name: e.target.value,
-                    }))
-                  }
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Kategori RS</Label>
-                <RadioGroup
-                  value={newDetail.hospital_category}
-                  onValueChange={(val) =>
-                    setNewDetail((prev) => ({
-                      ...prev,
-                      hospital_category: val,
-                    }))
-                  }
-                  className="flex gap-6 pt-1"
-                >
-                  {["Swasta", "Pemerintah"].map((cat) => (
-                    <label
-                      key={cat}
-                      htmlFor={`cat-${cat}`}
-                      className="flex items-center gap-2 cursor-pointer text-sm"
-                    >
-                      <RadioGroupItem value={cat} id={`cat-${cat}`} />
-                      {cat}
-                    </label>
-                  ))}
-                </RadioGroup>
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="detail-amount">Jumlah (Rp)</Label>
-                <Input
-                  id="detail-amount"
-                  type="number"
-                  min={0}
-                  placeholder="0"
-                  value={newDetail.amount === 0 ? "" : newDetail.amount}
-                  onChange={(e) =>
-                    setNewDetail((prev) => ({
-                      ...prev,
-                      amount: Number(e.target.value) || 0,
-                    }))
-                  }
-                />
-              </div>
-            </div>
-            <div className="flex justify-end">
-              <Button
-                className="bg-blue-500 hover:bg-blue-600 text-white"
-                disabled={addingDetail}
-                onClick={handleAddDetail}
-              >
-                {addingDetail ? "Menambah..." : "Tambah Uraian"}
-              </Button>
-            </div>
+          <div className="flex justify-end mt-4">
+            <Button
+              className="bg-blue-500 hover:bg-blue-600 text-white"
+              disabled={saving || newsStatus === "uploading" || !newsFile}
+              onClick={handleSaveInfo}
+            >
+              {newsStatus === "uploading"
+                ? "Mengupload..."
+                : saving
+                  ? "Menyimpan..."
+                  : "Simpan Berita Acara"}
+            </Button>
           </div>
         </CardContent>
       </Card>

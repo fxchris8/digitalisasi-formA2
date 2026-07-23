@@ -3,10 +3,13 @@ import { approvalRouter } from "./approval.route"
 import { authRouter } from "./auth.route"
 import { branchOfficeRouter } from "./branch-office.route"
 import { dashboardRouter } from "./dashboard.route"
+import { extractionRouter } from "./extraction.route"
 import { formA2Router } from "./form-a2.route"
 import { formCr9Router } from "./form-cr9.route"
 import { healthRouter } from "./health.route"
+import { hospitalRouter } from "./hospital.route"
 import { seamanRouter } from "./seaman.route"
+import { shipRouter } from "./ship.route"
 import { storageRouter } from "./storage.route"
 import { userRouter } from "./user.route"
 
@@ -25,5 +28,8 @@ router.use("/api/approval", approvalRouter)
 router.use("/api/dashboard", dashboardRouter)
 router.use("/api/seamen", seamanRouter)
 router.use("/api/branch-offices", branchOfficeRouter)
+router.use("/api/hospitals", hospitalRouter)
+router.use("/api/ships", shipRouter)
+router.use("/api/extraction", extractionRouter)
 
 export { router as apiRouter }

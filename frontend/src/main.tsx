@@ -15,7 +15,7 @@ createRoot(rootElement).render(
     <ErrorBoundary>
       <AuthProvider>
         <RouterProvider router={router} />
-        <Toaster richColors={true} position="top-right" expand={true} />
+        <Toaster richColors={true} position="top-center" expand={true} />
       </AuthProvider>
     </ErrorBoundary>
   </StrictMode>,

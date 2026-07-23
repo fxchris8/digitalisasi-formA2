@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto"
 import { createReadStream as fsCreateReadStream } from "node:fs"
-import { mkdir, unlink, writeFile } from "node:fs/promises"
+import { mkdir, readFile, unlink, writeFile } from "node:fs/promises"
 import path from "node:path"
 import type { Readable } from "node:stream"
 import type { StorageProvider } from "."
@@ -38,5 +38,10 @@ export class LocalStorageProvider implements StorageProvider {
   createReadStream(storedPath: string): Readable {
     const filePath = path.join(BASE_PATH(), storedPath)
     return fsCreateReadStream(filePath)
+  }
+
+  async readBuffer(storedPath: string): Promise<Buffer> {
+    const filePath = path.join(BASE_PATH(), storedPath)
+    return readFile(filePath)
   }
 }

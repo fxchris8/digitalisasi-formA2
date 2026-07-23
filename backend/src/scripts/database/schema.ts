@@ -27,6 +27,8 @@ async function schema(): Promise<void> {
           form_a2,
           form_cr9,
           form_number_counter,
+          hospitals,
+          ships,
           seamen,
           users,
           branch_offices
@@ -179,6 +181,32 @@ async function schema(): Promise<void> {
       )
     `)
 
+    // Master data rumah sakit — dipakai untuk dropdown-search & kalkulasi persentase approval
+    // (kategori swasta = 50%, pemerintah = 100%).
+    await client.query(/* sql */ `
+      CREATE TABLE IF NOT EXISTS hospitals (
+        id          UUID          PRIMARY KEY DEFAULT gen_random_uuid(),
+        name        VARCHAR(255)  NOT NULL,
+        province    VARCHAR(100)  NOT NULL,
+        city        VARCHAR(100)  NOT NULL,
+        category    VARCHAR(20)   NOT NULL CHECK (category IN ('swasta', 'pemerintah')),
+        owner_type  VARCHAR(100),           -- BUMN, Pemprop, Pemkab, TNI AL, Organisasi Sosial, dst.
+        created_at  TIMESTAMP     NOT NULL DEFAULT NOW(),
+        updated_at  TIMESTAMP     NOT NULL DEFAULT NOW(),
+        UNIQUE (name, city)
+      )
+    `)
+
+    // Master data kapal — dipakai untuk dropdown-search field "Nama Kapal" di Form CR9.
+    await client.query(/* sql */ `
+      CREATE TABLE IF NOT EXISTS ships (
+        id          UUID          PRIMARY KEY DEFAULT gen_random_uuid(),
+        name        VARCHAR(255)  NOT NULL UNIQUE,
+        created_at  TIMESTAMP     NOT NULL DEFAULT NOW(),
+        updated_at  TIMESTAMP     NOT NULL DEFAULT NOW()
+      )
+    `)
+
     // Form A2 adalah lanjutan dari CR9, memiliki alur approval multi-step.
     await client.query(/* sql */ `
       CREATE TABLE IF NOT EXISTS form_a2 (
@@ -205,13 +233,14 @@ async function schema(): Promise<void> {
     `)
 
     // Detail biaya per uraian sakit dalam satu form A2 (one-to-many).
+    // Rumah sakit direferensikan lewat FK (bukan teks bebas) — 1 form A2 = 1 rumah sakit,
+    // semua baris detail dalam satu form berbagi hospital_id yang sama.
     await client.query(/* sql */ `
       CREATE TABLE IF NOT EXISTS form_a2_detail (
         id                UUID          PRIMARY KEY DEFAULT gen_random_uuid(),
         form_a2_id        UUID          NOT NULL REFERENCES form_a2(id),
         description       TEXT          NOT NULL,   -- uraian sakit
-        hospital_name     VARCHAR(255)  NOT NULL,
-        hospital_category VARCHAR(100)  NOT NULL,
+        hospital_id       UUID          NOT NULL REFERENCES hospitals(id),
         amount            NUMERIC(15,2) NOT NULL,   -- biaya per uraian
         created_at        TIMESTAMP     NOT NULL DEFAULT NOW()
       )
@@ -238,7 +267,8 @@ async function schema(): Promise<void> {
       CREATE TABLE IF NOT EXISTS form_a2_revision (
         id            UUID            PRIMARY KEY DEFAULT gen_random_uuid(),
         form_a2_id    UUID            NOT NULL REFERENCES form_a2(id),
-        step          approval_step   NOT NULL,
+        step          approval_step   NOT NULL,   -- step MANA yang minta revisi
+        target_role   VARCHAR(20)     NOT NULL CHECK (target_role IN ('staff_cabang', 'staff_spm')), -- role TUJUAN revisi
         requested_by  UUID            NOT NULL REFERENCES users(id),
         requested_at  TIMESTAMP       NOT NULL DEFAULT NOW(),
         notes         TEXT,
