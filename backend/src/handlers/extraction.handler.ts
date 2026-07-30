@@ -15,7 +15,7 @@ export async function extractReceiptHandler(
       return
     }
     const dto = extractReceiptSchema.parse(req.body)
-    const result = await extractionService.extractReceiptData(dto.receipt_url)
+    const result = await extractionService.extractReceiptData(dto.receipt_urls)
     sendSuccess(res, "Data berhasil diekstrak dari kwitansi", result)
   } catch (err) {
     next(err)

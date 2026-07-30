@@ -15,6 +15,7 @@ export interface ApprovalLogItem {
   notes: string | null
   actioned_by: string
   actioner_name: string
+  actioner_email: string
   actioned_at: string
 }
 

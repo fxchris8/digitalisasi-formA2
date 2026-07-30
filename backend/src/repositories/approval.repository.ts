@@ -16,6 +16,7 @@ export interface ApprovalLogRow {
   notes: string | null
   actioned_by: string
   actioner_name: string
+  actioner_email: string
   actioned_at: Date
 }
 
@@ -90,6 +91,7 @@ export async function findAllApprovalLogs(params: {
         l.notes,
         l.actioned_by,
         u.full_name    AS actioner_name,
+        u.email        AS actioner_email,
         l.actioned_at
       ${baseJoin}
       ${where}

@@ -4,11 +4,11 @@ import type { ApiResponse } from "@/types/api"
 import type { ExtractedReceiptData } from "@/types/extraction"
 
 export async function extractReceipt(
-  receiptUrl: string,
+  receiptUrls: string[],
 ): Promise<ExtractedReceiptData> {
   const res = await apiClient.post<ApiResponse<ExtractedReceiptData>>(
     "/api/extraction/receipt",
-    { receipt_url: receiptUrl },
+    { receipt_urls: receiptUrls },
   )
   return unwrap(res.data)
 }

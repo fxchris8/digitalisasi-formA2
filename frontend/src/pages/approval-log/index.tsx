@@ -32,7 +32,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { formatDateTime } from "@/lib/format"
+import { formatActor, formatDateTime } from "@/lib/format"
 import { ROUTES } from "@/routes/config"
 import type { ApprovalLogItem } from "@/types/approval"
 import type { ApprovalStatus, ApprovalStep } from "@/types/form-a2"
@@ -342,7 +342,7 @@ export default function ApprovalLogPage() {
                     {row.percentage != null ? `${row.percentage}%` : "-"}
                   </TableCell>
                   <TableCell className="whitespace-nowrap text-muted-foreground">
-                    {row.actioner_name}
+                    {formatActor(row.actioner_name, row.actioner_email)}
                   </TableCell>
                   <TableCell className="whitespace-nowrap text-muted-foreground">
                     {formatDateTime(row.actioned_at)}

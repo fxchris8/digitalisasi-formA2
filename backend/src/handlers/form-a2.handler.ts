@@ -1,5 +1,6 @@
 import type { NextFunction, Request, Response } from "express"
 import * as formA2Service from "@/services/form-a2.service"
+import * as pdfExportService from "@/services/pdf-export.service"
 import { AppError } from "@/utils/app-error"
 import { sendSuccess } from "@/utils/response"
 import {
@@ -96,6 +97,31 @@ export async function requestCabangRevisionHandler(
     const dto = requestCabangRevisionSchema.parse(req.body)
     const result = await formA2Service.requestCabangRevision(req.user, id, dto)
     sendSuccess(res, "Revisi berhasil diajukan ke staff cabang", result)
+  } catch (err) {
+    next(err)
+  }
+}
+
+/** GET /api/form-a2/:id/export-pdf — PDF gabungan CR9+A2+dokumen (finance/admin, setelah approved) */
+export async function exportFormA2PdfHandler(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    if (!req.user) {
+      next(new AppError("Unauthorized", 401, "UNAUTHORIZED"))
+      return
+    }
+    const id = req.params.id as string
+    const form = await formA2Service.getFormA2(req.user, id)
+    const pdfBuffer = await pdfExportService.exportFormA2Pdf(req.user, id)
+    res.setHeader("Content-Type", "application/pdf")
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="A2-${form.form_number}.pdf"`,
+    )
+    res.send(pdfBuffer)
   } catch (err) {
     next(err)
   }

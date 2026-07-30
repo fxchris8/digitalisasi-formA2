@@ -1,4 +1,4 @@
-import { AlertTriangle, Info } from "lucide-react"
+import { AlertTriangle, Download, Info } from "lucide-react"
 import { useEffect, useState } from "react"
 import { useNavigate, useParams } from "react-router"
 import { toast } from "sonner"
@@ -6,8 +6,14 @@ import {
   approveFormA2,
   rejectFormA2,
   requestRevisionFormA2,
+  resolveNominalRevisionFormA2,
 } from "@/api/approval"
-import { getFormA2, requestCabangRevision, submitFormA2 } from "@/api/form-a2"
+import {
+  exportFormA2Pdf,
+  getFormA2,
+  requestCabangRevision,
+  submitFormA2,
+} from "@/api/form-a2"
 import { getFormCr9 } from "@/api/form-cr9"
 import { A2Timeline } from "@/components/form-a2/a2-timeline"
 import { Badge } from "@/components/ui/badge"
@@ -136,6 +142,13 @@ export default function FormA2DetailPage() {
     useState<RevisionTargetRole>("staff_cabang")
   const [acting, setActing] = useState(false)
 
+  // ── Selesaikan revisi nominal (manager Nautica/SPM) ────────────────────────
+  const [resolveNominalOpen, setResolveNominalOpen] = useState(false)
+  const [nominalPercentage, setNominalPercentage] = useState("")
+  const [nominalNotes, setNominalNotes] = useState("")
+
+  const [exportingPdf, setExportingPdf] = useState(false)
+
   // ── Revisi pra-chain (staff SPM kirim balik ke cabang, sebelum pernah
   // diajukan ke manager) ────────────────────────────────────────────────────
   const [cabangRevisionOpen, setCabangRevisionOpen] = useState(false)
@@ -144,7 +157,7 @@ export default function FormA2DetailPage() {
 
   const canManage =
     user?.role === ROLES.ADMIN ||
-    (user?.role === ROLES.STAFF && user?.department === "spm")
+    (user?.role === ROLES.ADMIN_SPM && user?.department === "spm")
 
   const myStep = user ? getManagerStep(user) : null
   const canApprove =
@@ -162,10 +175,46 @@ export default function FormA2DetailPage() {
     (form?.status === "draft" ||
       (form?.status === "revision" && !revisionWaitingOnCabang))
 
-  // Staff SPM cuma bisa minta revisi ke cabang SEBELUM form pernah diajukan
+  // Admin SPM cuma bisa minta revisi ke cabang SEBELUM form pernah diajukan
   // ke manager sama sekali (masih draft, belum ada submitted_to_manager_at).
   const canRequestCabangRevision =
     canManage && form?.status === "draft" && !form.submitted_to_manager_at
+
+  // Revisi nominal — manager Nautica/SPM menyelesaikan revisi nominal yang
+  // diminta step SETELAHnya (SPM minta ke Nautica, Finance minta ke SPM).
+  const expectedNominalRevisionTarget: RevisionTargetRole | null =
+    myStep === "nautica"
+      ? "manager_nautica"
+      : myStep === "spm"
+        ? "manager_spm"
+        : null
+  const canResolveNominalRevision =
+    form?.status === "revision" &&
+    expectedNominalRevisionTarget !== null &&
+    form.active_revision?.target_role === expectedNominalRevisionTarget
+
+  // Export PDF gabungan hanya tersedia setelah Finance approve penuh.
+  const canExportPdf =
+    form?.status === "approved" &&
+    (user?.role === ROLES.ADMIN || user?.department === "finance")
+
+  async function handleExportPdf() {
+    if (!id || !form) return
+    setExportingPdf(true)
+    try {
+      const blob = await exportFormA2Pdf(id)
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement("a")
+      a.href = url
+      a.download = `A2-${form.form_number}.pdf`
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Gagal mengekspor PDF")
+    } finally {
+      setExportingPdf(false)
+    }
+  }
 
   // Label tujuan pengajuan berikutnya — dinamis: pengajuan pertama selalu ke
   // Nautica, resubmit setelah revisi kembali ke step yang minta revisi.
@@ -245,8 +294,15 @@ export default function FormA2DetailPage() {
   const calculatedPreset =
     myStep && form ? getCalculatedPreset(myStep, form) : null
 
+  // CR9 Reimbursement + kecelakaan kerja = persentase terkunci 100% di
+  // setiap step approval, approver tidak bisa mengubahnya.
+  const isWorkAccidentLocked =
+    form?.cr9_type === "reimbursement" && !!form?.cr9_is_work_accident
+
   function openApproveDialog() {
-    if (calculatedPreset) {
+    if (isWorkAccidentLocked) {
+      setActionPercentage("100")
+    } else if (calculatedPreset) {
       setPercentagePreset("calculated")
       setActionPercentage(calculatedPreset.value)
     } else {
@@ -304,6 +360,54 @@ export default function FormA2DetailPage() {
     }
   }
 
+  const nominalPct = Number(nominalPercentage)
+  const nominalPctValid =
+    nominalPercentage !== "" &&
+    !Number.isNaN(nominalPct) &&
+    nominalPct >= 0 &&
+    nominalPct <= 100
+
+  function openResolveNominalDialog() {
+    if (isWorkAccidentLocked) {
+      setNominalPercentage("100")
+    } else {
+      // Default: persentase yang sebelumnya disetujui manager ini sendiri
+      // di step yang sama, sebelum revisi nominal diminta.
+      const ownPriorLog = myStep
+        ? [...(form?.approval_logs ?? [])]
+            .reverse()
+            .find((l) => l.step === myStep && l.status === "approved")
+        : undefined
+      setNominalPercentage(
+        ownPriorLog?.percentage ? String(Number(ownPriorLog.percentage)) : "",
+      )
+    }
+    setNominalNotes("")
+    setResolveNominalOpen(true)
+  }
+
+  async function handleResolveNominalRevision() {
+    if (!id || !nominalPctValid) return
+    setActing(true)
+    try {
+      await resolveNominalRevisionFormA2(id, {
+        percentage: nominalPct,
+        notes: nominalNotes || undefined,
+      })
+      setResolveNominalOpen(false)
+      toast.success("Revisi nominal berhasil diselesaikan")
+      await refresh()
+    } catch (err) {
+      toast.error(
+        err instanceof Error
+          ? err.message
+          : "Gagal menyelesaikan revisi nominal",
+      )
+    } finally {
+      setActing(false)
+    }
+  }
+
   async function handleReject() {
     if (!id || !actionNotes.trim()) return
     setActing(true)
@@ -348,8 +452,19 @@ export default function FormA2DetailPage() {
           <p className="mt-0.5 text-sm text-gray-500">{form.form_number}</p>
         </div>
 
-        {(canEdit || canRequestCabangRevision) && (
+        {(canEdit || canRequestCabangRevision || canExportPdf) && (
           <div className="flex gap-2 shrink-0">
+            {canExportPdf && (
+              <Button
+                variant="outline"
+                className="gap-1.5"
+                disabled={exportingPdf}
+                onClick={handleExportPdf}
+              >
+                <Download className="size-4" />
+                {exportingPdf ? "Mengekspor..." : "Export PDF"}
+              </Button>
+            )}
             {canRequestCabangRevision && (
               <Button
                 variant="outline"
@@ -404,6 +519,22 @@ export default function FormA2DetailPage() {
         </div>
       )}
 
+      {/* Banner: berita acara sudah ada tapi form belum diajukan ke manager */}
+      {canEdit && form.status === "draft" && form.news_url && (
+        <div className="flex items-start gap-3 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
+          <Info className="h-5 w-5 shrink-0 mt-0.5" />
+          <div>
+            <p className="font-medium">
+              Berita acara sudah diupload, tapi form belum diajukan
+            </p>
+            <p className="mt-0.5 text-blue-700">
+              Klik tombol "Ajukan ke {nextStepLabel}" di atas supaya form masuk
+              ke antrian approval.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Info Form */}
       <Card>
         <CardHeader>
@@ -429,6 +560,28 @@ export default function FormA2DetailPage() {
               label="Status A2"
               value={<StatusBadge status={form.status} />}
             />
+            <InfoRow
+              label="Jenis CR9"
+              value={
+                form.cr9_type === "reimbursement"
+                  ? "CR9 Reimbursement"
+                  : "CR9 Perusahaan"
+              }
+            />
+            {form.cr9_type === "reimbursement" && (
+              <InfoRow
+                label="Kecelakaan Kerja"
+                value={
+                  form.cr9_is_work_accident ? (
+                    <Badge className="bg-amber-100 text-amber-800">
+                      Ya — reimbursement 100% (terkunci)
+                    </Badge>
+                  ) : (
+                    "Tidak"
+                  )
+                }
+              />
+            )}
             <InfoRow label="Cabang" value={form.branch_office} />
             <InfoRow
               label="Tanggal CR9 Diajukan"
@@ -479,7 +632,8 @@ export default function FormA2DetailPage() {
           <CardTitle>Detail Biaya</CardTitle>
           <CardDescription>
             Rincian biaya yang diajukan — {form.details[0]?.hospital_name}
-            {form.details[0] && ` (${form.details[0].hospital_category})`}
+            {form.details[0]?.hospital_category &&
+              ` (${form.details[0].hospital_category})`}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -538,17 +692,24 @@ export default function FormA2DetailPage() {
                 </p>
               )}
             </div>
-            <div className="space-y-1">
-              <FileCard
-                label="Kwitansi"
-                storedPath={cr9?.receipt_url ?? null}
-              />
-              {cr9?.receipt_url_added_at && (
-                <p className="text-xs text-muted-foreground px-1">
-                  Diunggah pada {formatDateTime(cr9.receipt_url_added_at)}
-                </p>
-              )}
-            </div>
+            {cr9?.receipts && cr9.receipts.length > 0 ? (
+              cr9.receipts.map((r, i) => (
+                <div key={r.id} className="space-y-1">
+                  <FileCard
+                    label={`Kwitansi ${cr9.receipts?.length === 1 ? "" : i + 1}`}
+                    storedPath={r.storage_path}
+                  />
+                  <p className="text-xs text-muted-foreground px-1">
+                    Diunggah pada {formatDateTime(r.added_at)}
+                    {r.added_by_name && ` oleh ${r.added_by_name}`}
+                  </p>
+                </div>
+              ))
+            ) : (
+              <div className="space-y-1">
+                <FileCard label="Kwitansi" storedPath={null} />
+              </div>
+            )}
             <div className="space-y-1">
               <FileCard
                 label="Berita Acara"
@@ -611,6 +772,19 @@ export default function FormA2DetailPage() {
         </div>
       )}
 
+      {/* Aksi Selesaikan Revisi Nominal — manager Nautica/SPM yang jadi target */}
+      {canResolveNominalRevision && (
+        <div className="flex justify-end gap-2 py-4">
+          <Button
+            size="lg"
+            className="bg-green-600 hover:bg-green-700 text-white"
+            onClick={openResolveNominalDialog}
+          >
+            Selesaikan Revisi Nominal
+          </Button>
+        </div>
+      )}
+
       {/* Confirm submit dialog (staff SPM) */}
       <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
         <DialogContent className="sm:max-w-lg text-center">
@@ -656,39 +830,50 @@ export default function FormA2DetailPage() {
               <Label>
                 Persentase <span className="text-red-500">*</span>
               </Label>
-              <RadioGroup
-                value={percentagePreset}
-                onValueChange={(v) =>
-                  handlePresetChange(v as "calculated" | "custom")
-                }
-                className="flex flex-col gap-2"
-              >
-                {calculatedPreset && (
-                  <label
-                    htmlFor="pct-calculated"
-                    className="flex items-center gap-2 cursor-pointer text-sm"
+              {isWorkAccidentLocked ? (
+                <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+                  Kecelakaan kerja — persentase terkunci 100%
+                </div>
+              ) : (
+                <>
+                  <RadioGroup
+                    value={percentagePreset}
+                    onValueChange={(v) =>
+                      handlePresetChange(v as "calculated" | "custom")
+                    }
+                    className="flex flex-col gap-2"
                   >
-                    <RadioGroupItem value="calculated" id="pct-calculated" />
-                    {calculatedPreset.label}
-                  </label>
-                )}
-                <label
-                  htmlFor="pct-custom"
-                  className="flex items-center gap-2 cursor-pointer text-sm"
-                >
-                  <RadioGroupItem value="custom" id="pct-custom" />
-                  Custom
-                </label>
-              </RadioGroup>
-              {percentagePreset === "custom" && (
-                <Input
-                  type="number"
-                  min={0}
-                  max={100}
-                  placeholder="0 – 100"
-                  value={actionPercentage}
-                  onChange={(e) => setActionPercentage(e.target.value)}
-                />
+                    {calculatedPreset && (
+                      <label
+                        htmlFor="pct-calculated"
+                        className="flex items-center gap-2 cursor-pointer text-sm"
+                      >
+                        <RadioGroupItem
+                          value="calculated"
+                          id="pct-calculated"
+                        />
+                        {calculatedPreset.label}
+                      </label>
+                    )}
+                    <label
+                      htmlFor="pct-custom"
+                      className="flex items-center gap-2 cursor-pointer text-sm"
+                    >
+                      <RadioGroupItem value="custom" id="pct-custom" />
+                      Custom
+                    </label>
+                  </RadioGroup>
+                  {percentagePreset === "custom" && (
+                    <Input
+                      type="number"
+                      min={0}
+                      max={100}
+                      placeholder="0 – 100"
+                      value={actionPercentage}
+                      onChange={(e) => setActionPercentage(e.target.value)}
+                    />
+                  )}
+                </>
               )}
               {approvedAmount !== null && (
                 <div className="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-700">
@@ -732,6 +917,77 @@ export default function FormA2DetailPage() {
         </DialogContent>
       </Dialog>
 
+      {/* Dialog: Selesaikan Revisi Nominal */}
+      <Dialog open={resolveNominalOpen} onOpenChange={setResolveNominalOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Selesaikan Revisi Nominal?</DialogTitle>
+            <DialogDescription>
+              Perbaiki persentase, lalu form akan langsung diajukan kembali ke
+              step yang meminta revisi ini.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>
+                Persentase <span className="text-red-500">*</span>
+              </Label>
+              {isWorkAccidentLocked ? (
+                <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+                  Kecelakaan kerja — persentase terkunci 100%
+                </div>
+              ) : (
+                <Input
+                  type="number"
+                  min={0}
+                  max={100}
+                  placeholder="0 – 100"
+                  value={nominalPercentage}
+                  onChange={(e) => setNominalPercentage(e.target.value)}
+                />
+              )}
+              {nominalPctValid && (
+                <div className="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-700">
+                  Jumlah disetujui:{" "}
+                  <span className="font-semibold font-mono">
+                    {formatRupiah((cr9Amount * nominalPct) / 100)}
+                  </span>{" "}
+                  <span className="text-blue-500">
+                    dari {formatRupiah(cr9Amount)}
+                  </span>
+                </div>
+              )}
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="resolve-nominal-notes">Catatan</Label>
+              <Textarea
+                id="resolve-nominal-notes"
+                placeholder="Catatan bersifat opsional."
+                rows={3}
+                value={nominalNotes}
+                onChange={(e) => setNominalNotes(e.target.value)}
+              />
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setResolveNominalOpen(false)}
+              disabled={acting}
+            >
+              Batal
+            </Button>
+            <Button
+              className="bg-green-600 hover:bg-green-700 text-white"
+              onClick={handleResolveNominalRevision}
+              disabled={acting || !nominalPctValid}
+            >
+              {acting ? "Memproses..." : "Ya, Selesaikan"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Dialog: Revisi */}
       <Dialog open={revisionOpen} onOpenChange={setRevisionOpen}>
         <DialogContent className="sm:max-w-lg">
@@ -767,8 +1023,32 @@ export default function FormA2DetailPage() {
                   className="flex items-center gap-2 cursor-pointer text-sm"
                 >
                   <RadioGroupItem value="staff_spm" id="target-spm" />
-                  Berita Acara (kembali ke staff SPM)
+                  Berita Acara (kembali ke Admin SPM)
                 </label>
+                {myStep === "spm" && (
+                  <label
+                    htmlFor="target-manager-nautica"
+                    className="flex items-center gap-2 cursor-pointer text-sm"
+                  >
+                    <RadioGroupItem
+                      value="manager_nautica"
+                      id="target-manager-nautica"
+                    />
+                    Revisi Nominal (kembali ke Manager Nautica)
+                  </label>
+                )}
+                {myStep === "finance" && (
+                  <label
+                    htmlFor="target-manager-spm"
+                    className="flex items-center gap-2 cursor-pointer text-sm"
+                  >
+                    <RadioGroupItem
+                      value="manager_spm"
+                      id="target-manager-spm"
+                    />
+                    Revisi Nominal (kembali ke Manager SPM)
+                  </label>
+                )}
               </RadioGroup>
             </div>
             <div className="space-y-2">

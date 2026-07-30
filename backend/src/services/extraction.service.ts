@@ -210,21 +210,45 @@ async function callOpenRouter(params: {
   throw lastError
 }
 
+/**
+ * Ekstrak satu atau lebih file kwitansi sekaligus (Form CR9 sekarang boleh
+ * punya >1 kuitansi) dan gabungkan hasilnya: semua `details` digabung apa
+ * adanya (setiap file diekstrak independen, jadi tidak ada risiko dobel
+ * hitung ANTAR file — dobel hitung DALAM satu file sudah ditangani prompt),
+ * `hospital_name`/`date` ambil dari file pertama yang berhasil terbaca, dan
+ * `total_amount` dijumlah dari semua file (asumsi: tiap file adalah nota
+ * terpisah untuk klaim yang sama, bukan halaman dari satu nota yang sama —
+ * kalau strategi ini tidak sesuai kasus nyata, perlu direvisi bersama client).
+ */
 export async function extractReceiptData(
-  storedPath: string,
+  storedPaths: string[],
 ): Promise<ExtractedReceiptData> {
   const storage = getStorageProvider()
-  const buffer = await storage.readBuffer(storedPath)
-  const filename = storedPath.split("/").pop() ?? "document.pdf"
 
-  const result = await callOpenRouter({ buffer, filename })
+  const results = await Promise.all(
+    storedPaths.map(async (storedPath) => {
+      const buffer = await storage.readBuffer(storedPath)
+      const filename = storedPath.split("/").pop() ?? "document.pdf"
+      return callOpenRouter({ buffer, filename })
+    }),
+  )
+
+  const hospitalName =
+    results.find((r) => r.hospital_name)?.hospital_name ?? null
+  const date = results.find((r) => r.date)?.date ?? null
+  const details = results.flatMap((r) => r.details)
+  const amounts = results
+    .map((r) => r.total_amount)
+    .filter((a): a is number => a !== null)
+  const totalAmount =
+    amounts.length > 0 ? amounts.reduce((a, b) => a + b, 0) : null
 
   // Cocokkan nama RS hasil ekstraksi ke master data — kalau ketemu, langsung
   // kasih hospital_id; kalau tidak, biarkan null (user pilih manual di FE).
   let hospitalId: string | null = null
-  if (result.hospital_name) {
+  if (hospitalName) {
     const { rows } = await hospitalRepo.findAll({
-      search: result.hospital_name,
+      search: hospitalName,
       limit: 1,
       offset: 0,
     })
@@ -232,10 +256,10 @@ export async function extractReceiptData(
   }
 
   return {
-    hospital_name: result.hospital_name,
+    hospital_name: hospitalName,
     hospital_id: hospitalId,
-    date: result.date,
-    total_amount: result.total_amount,
-    details: result.details,
+    date,
+    total_amount: totalAmount,
+    details,
   }
 }

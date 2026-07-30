@@ -9,7 +9,8 @@ import type {
   FormA2WithDetails,
   RevisionTargetRole,
 } from "@/models/form-a2.model"
-import type { FormCr9 } from "@/models/form-cr9.model"
+import type { Cr9Type, FormCr9 } from "@/models/form-cr9.model"
+import * as receiptRepo from "@/repositories/form-cr9-receipt.repository"
 import type { UpdateFormA2Dto } from "@/validations/form-a2.validation"
 
 // ── Create CR9 + Create A2 (atomic transaction) ───────────────────────────────
@@ -36,9 +37,12 @@ export async function createCr9AndA2(params: {
   ship: string
   complaint: string
   cr9Url: string
-  receiptUrl: string
+  receiptUrls: string[]
   diagnosis: string
-  hospitalId: string
+  cr9Type: Cr9Type
+  isWorkAccident: boolean | null
+  hospitalId: string | null
+  hospitalNameManual: string | null
   details: { description: string; amount: number }[]
 }): Promise<{ cr9: FormCr9; a2: FormA2 }> {
   const client = await pool.connect()
@@ -65,39 +69,54 @@ export async function createCr9AndA2(params: {
 
     const cr9FormNumber = `CR9/${params.branchOffice}/${String(cr9Seq).padStart(4, "0")}/${String(params.month).padStart(2, "0")}/${params.year}`
 
+    // receipt_url (kolom lama, single-file) sengaja tidak lagi ditulis di sini
+    // — kuitansi sekarang disimpan di tabel form_cr9_receipt (bisa >1 file).
     const cr9Res = await client.query<FormCr9>(
       /* sql */ `
         INSERT INTO form_cr9 (
           created_by, branch_office, seq_number, month, year, form_number,
+          cr9_type, is_work_accident,
           seafarer_code, seaman_code, seaman_name, position, ship, complaint,
           cr9_url, cr9_url_added_by, cr9_url_added_at,
-          receipt_url, receipt_url_added_by, receipt_url_added_at,
           amount
-        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,NOW(),$15,$16,NOW(),$17)
+        ) VALUES (
+          $1, $2, $3, $4, $5, $6,
+          $7, $8,
+          $9, $10, $11, $12, $13, $14,
+          $15, $16, NOW(),
+          $17
+        )
         RETURNING *
       `,
       [
-        params.createdBy,
-        params.branchOffice,
-        cr9Seq,
-        params.month,
-        params.year,
-        cr9FormNumber,
-        params.seafarerCode,
-        params.seamanCode,
-        params.seamanName,
-        params.position,
-        params.ship,
-        params.complaint,
-        params.cr9Url,
-        params.createdBy,
-        params.receiptUrl,
-        params.createdBy,
-        amount,
+        params.createdBy, // 1
+        params.branchOffice, // 2
+        cr9Seq, // 3
+        params.month, // 4
+        params.year, // 5
+        cr9FormNumber, // 6
+        params.cr9Type, // 7
+        params.isWorkAccident, // 8
+        params.seafarerCode, // 9
+        params.seamanCode, // 10
+        params.seamanName, // 11
+        params.position, // 12
+        params.ship, // 13
+        params.complaint, // 14
+        params.cr9Url, // 15
+        params.createdBy, // 16 cr9_url_added_by
+        amount, // 17
       ],
     )
     const cr9 = cr9Res.rows[0]
     if (!cr9) throw new Error("Failed to create Form CR9")
+
+    await receiptRepo.insertMany(
+      client,
+      cr9.id,
+      params.receiptUrls,
+      params.createdBy,
+    )
 
     // 2. Generate nomor urut A2 (counter global) & insert form_a2 (draft)
     const a2SeqRes = await client.query<{ last_seq: number }>(
@@ -136,14 +155,21 @@ export async function createCr9AndA2(params: {
     const a2 = a2Res.rows[0]
     if (!a2) throw new Error("Failed to create Form A2")
 
-    // 3. Insert rincian biaya (semua baris pakai hospital_id yang sama)
+    // 3. Insert rincian biaya (semua baris pakai hospital_id ATAU
+    // hospital_name_manual yang sama, sesuai cr9_type)
     for (const detail of params.details) {
       await client.query(
         /* sql */ `
-          INSERT INTO form_a2_detail (form_a2_id, description, hospital_id, amount)
-          VALUES ($1, $2, $3, $4)
+          INSERT INTO form_a2_detail (form_a2_id, description, hospital_id, hospital_name_manual, amount)
+          VALUES ($1, $2, $3, $4, $5)
         `,
-        [a2.id, detail.description, params.hospitalId, detail.amount],
+        [
+          a2.id,
+          detail.description,
+          params.hospitalId,
+          params.hospitalNameManual,
+          detail.amount,
+        ],
       )
     }
 
@@ -167,6 +193,7 @@ export async function replaceCr9DetailsAndDiagnosis(params: {
   cr9Id: string
   diagnosis?: string | undefined
   hospitalId?: string | undefined
+  hospitalNameManual?: string | undefined
   details?: { description: string; amount: number }[] | undefined
 }): Promise<void> {
   const client = await pool.connect()
@@ -188,17 +215,25 @@ export async function replaceCr9DetailsAndDiagnosis(params: {
       )
     }
 
-    if (params.details !== undefined && params.hospitalId !== undefined) {
+    const hasHospital =
+      params.hospitalId !== undefined || params.hospitalNameManual !== undefined
+    if (params.details !== undefined && hasHospital) {
       await client.query(`DELETE FROM form_a2_detail WHERE form_a2_id = $1`, [
         a2Id,
       ])
       for (const detail of params.details) {
         await client.query(
           /* sql */ `
-            INSERT INTO form_a2_detail (form_a2_id, description, hospital_id, amount)
-            VALUES ($1, $2, $3, $4)
+            INSERT INTO form_a2_detail (form_a2_id, description, hospital_id, hospital_name_manual, amount)
+            VALUES ($1, $2, $3, $4, $5)
           `,
-          [a2Id, detail.description, params.hospitalId, detail.amount],
+          [
+            a2Id,
+            detail.description,
+            params.hospitalId ?? null,
+            params.hospitalNameManual ?? null,
+            detail.amount,
+          ],
         )
       }
       const amount = params.details.reduce((sum, d) => sum + d.amount, 0)
@@ -278,8 +313,12 @@ export async function findAll(params: {
         c.seaman_code,
         c.ship,
         c.amount AS cr9_amount,
+        c.cr9_type,
+        c.is_work_accident AS cr9_is_work_accident,
         u.full_name AS creator_name,
-        us.full_name AS submitted_to_manager_name
+        u.email AS creator_email,
+        us.full_name AS submitted_to_manager_name,
+        us.email AS submitted_to_manager_email
       FROM form_a2 a
       JOIN form_cr9 c ON c.id = a.form_cr9_id
       JOIN users u ON u.id = a.created_by
@@ -307,12 +346,19 @@ export async function findById(id: string): Promise<FormA2WithDetails | null> {
         c.seaman_code,
         c.ship,
         c.amount AS cr9_amount,
+        c.cr9_type,
+        c.is_work_accident AS cr9_is_work_accident,
         u.full_name AS creator_name,
-        us.full_name AS submitted_to_manager_name
+        u.email AS creator_email,
+        us.full_name AS submitted_to_manager_name,
+        us.email AS submitted_to_manager_email,
+        nu.full_name AS news_added_by_name,
+        nu.email AS news_added_by_email
       FROM form_a2 a
       JOIN form_cr9 c ON c.id = a.form_cr9_id
       JOIN users u ON u.id = a.created_by
       LEFT JOIN users us ON us.id = a.submitted_to_manager_by
+      LEFT JOIN users nu ON nu.id = a.news_added_by
       WHERE a.id = $1
       LIMIT 1
     `,
@@ -326,12 +372,12 @@ export async function findById(id: string): Promise<FormA2WithDetails | null> {
     /* sql */ `
       SELECT
         d.*,
-        h.name AS hospital_name,
+        COALESCE(h.name, d.hospital_name_manual) AS hospital_name,
         h.category AS hospital_category,
         h.province AS hospital_province,
         h.city AS hospital_city
       FROM form_a2_detail d
-      JOIN hospitals h ON h.id = d.hospital_id
+      LEFT JOIN hospitals h ON h.id = d.hospital_id
       WHERE d.form_a2_id = $1
       ORDER BY d.created_at ASC
     `,
@@ -340,7 +386,7 @@ export async function findById(id: string): Promise<FormA2WithDetails | null> {
 
   const logsRes = await pool.query<FormA2ApprovalLog>(
     /* sql */ `
-      SELECT l.*, u.full_name AS actioner_name
+      SELECT l.*, u.full_name AS actioner_name, u.email AS actioner_email
       FROM form_a2_approval_log l
       JOIN users u ON u.id = l.actioned_by
       WHERE l.form_a2_id = $1
@@ -411,7 +457,7 @@ export async function update(
 
 // ── Status transitions ────────────────────────────────────────────────────────
 
-/** Staff SPM submit A2 ke approval chain: draft → pending, current_step = nautica */
+/** Admin SPM submit A2 ke approval chain: draft → pending, current_step = nautica */
 export async function submitToManager(
   id: string,
   userId: string,
@@ -512,15 +558,76 @@ export async function requestRevision(
   }
 }
 
+/**
+ * Selesaikan revisi NOMINAL (diminta manager SPM/Finance, target-nya manager
+ * step sebelumnya — bukan staff). Beda dari `resolveRevisionAndResubmit`:
+ * di sini yang "menyelesaikan" adalah si manager target dengan APPROVE ulang
+ * pakai persentase baru (insert approval_log 'approved'), bukan staff submit.
+ * Setelah selesai, langsung balik ke step yang tadi minta revisi (skip approve
+ * ulang oleh step perantara) — bukan lanjut lewat NEXT_STEP seperti approve biasa.
+ */
+export async function resolveNominalRevision(
+  formA2Id: string,
+  revisionId: string,
+  step: ApprovalStep,
+  userId: string,
+  percentage: number,
+  notes?: string,
+): Promise<FormA2 | null> {
+  const client = await pool.connect()
+  try {
+    await client.query("BEGIN")
+
+    await client.query(
+      `INSERT INTO form_a2_approval_log (form_a2_id, step, status, percentage, notes, actioned_by)
+       VALUES ($1, $2, 'approved', $3, $4, $5)`,
+      [formA2Id, step, percentage, notes ?? null, userId],
+    )
+
+    const revRes = await client.query<{ step: ApprovalStep }>(
+      `UPDATE form_a2_revision SET is_resolved = TRUE, resolved_by = $1, resolved_at = NOW()
+       WHERE id = $2 RETURNING step`,
+      [userId, revisionId],
+    )
+    const requesterStep = revRes.rows[0]?.step
+    if (!requesterStep) {
+      await client.query("ROLLBACK")
+      return null
+    }
+
+    const result = await client.query<FormA2>(
+      `UPDATE form_a2 SET status = 'pending', current_step = $1, updated_at = NOW()
+       WHERE id = $2 RETURNING *`,
+      [requesterStep, formA2Id],
+    )
+
+    await client.query("COMMIT")
+    return result.rows[0] ?? null
+  } catch (err) {
+    await client.query("ROLLBACK")
+    throw err
+  } finally {
+    client.release()
+  }
+}
+
 /** Cari revisi yang masih aktif (belum diselesaikan) untuk sebuah Form A2. */
 export async function findActiveRevision(
   formA2Id: string,
 ): Promise<FormA2Revision | null> {
   const result = await pool.query<FormA2Revision>(
     /* sql */ `
-      SELECT * FROM form_a2_revision
-      WHERE form_a2_id = $1 AND is_resolved = FALSE
-      ORDER BY requested_at DESC
+      SELECT
+        rev.*,
+        rq.full_name AS requested_by_name,
+        rq.email AS requested_by_email,
+        rs.full_name AS resolved_by_name,
+        rs.email AS resolved_by_email
+      FROM form_a2_revision rev
+      LEFT JOIN users rq ON rq.id = rev.requested_by
+      LEFT JOIN users rs ON rs.id = rev.resolved_by
+      WHERE rev.form_a2_id = $1 AND rev.is_resolved = FALSE
+      ORDER BY rev.requested_at DESC
       LIMIT 1
     `,
     [formA2Id],
@@ -578,7 +685,7 @@ export async function resolveRevisionAndResubmit(
 }
 
 /**
- * Staff SPM mengirim form kembali ke staff cabang untuk revisi data —
+ * Admin SPM mengirim form kembali ke staff cabang untuk revisi data —
  * dipakai SEBELUM form pernah diajukan ke manager (status masih 'draft').
  * `step: 'nautica'` di sini cuma penanda "tujuan berikutnya setelah
  * diperbaiki & diajukan normal", bukan hasil aksi seorang approver — beda

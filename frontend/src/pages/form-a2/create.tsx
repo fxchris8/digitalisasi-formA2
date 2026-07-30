@@ -22,7 +22,7 @@ export default function FormA2CreatePage() {
             <p className="text-sm text-muted-foreground max-w-md">
               Untuk membuat Form A2, buat atau ajukan terlebih dahulu Form CR9.
               Setelah CR9 diajukan, Form A2 akan terbuat secara otomatis dan
-              dapat dilengkapi oleh Staff SPM.
+              dapat dilengkapi oleh Admin SPM.
             </p>
           </div>
           <div className="flex gap-3 mt-2">

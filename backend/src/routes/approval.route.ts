@@ -5,6 +5,7 @@ import {
   listPendingApprovalHandler,
   rejectFormA2Handler,
   requestRevisionHandler,
+  resolveNominalRevisionHandler,
 } from "@/handlers/approval.handler"
 import { authenticate, authorize } from "@/middlewares/auth"
 
@@ -23,6 +24,9 @@ router.post("/:id/approve", approveFormA2Handler)
 
 // POST /api/approval/:id/revision  — minta revisi
 router.post("/:id/revision", requestRevisionHandler)
+
+// POST /api/approval/:id/resolve-nominal-revision — manager selesaikan revisi nominal
+router.post("/:id/resolve-nominal-revision", resolveNominalRevisionHandler)
 
 // POST /api/approval/:id/reject    — tolak
 router.post("/:id/reject", rejectFormA2Handler)

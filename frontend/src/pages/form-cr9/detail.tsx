@@ -25,7 +25,7 @@ import {
 import { FileCard } from "@/components/ui/file-card"
 import { InfoRow } from "@/components/ui/info-row"
 import { useAuth } from "@/contexts/auth.context"
-import { formatDateTime, formatRupiah } from "@/lib/format"
+import { formatActor, formatDateTime, formatRupiah } from "@/lib/format"
 import { ROLES } from "@/lib/rbac"
 import { ROUTES } from "@/routes/config"
 import type { FormA2WithDetails } from "@/types/form-a2"
@@ -65,8 +65,8 @@ export default function FormCr9DetailPage() {
 
   const canManage =
     user?.role === ROLES.ADMIN ||
-    (user?.role === ROLES.STAFF &&
-      (user?.department === "cabang" || user?.department === "spm"))
+    (user?.role === ROLES.STAFF && user?.department === "cabang") ||
+    (user?.role === ROLES.ADMIN_SPM && user?.department === "spm")
 
   const canEdit =
     canManage && (form?.status === "draft" || form?.needs_cabang_revision)
@@ -156,7 +156,7 @@ export default function FormCr9DetailPage() {
           <Info className="h-5 w-5 shrink-0 mt-0.5" />
           <div>
             <p className="font-medium">
-              Staff SPM meminta revisi data kelengkapan
+              Admin SPM meminta revisi data kelengkapan
             </p>
             {form.revision_notes && (
               <p className="mt-0.5 text-orange-700">
@@ -180,7 +180,10 @@ export default function FormCr9DetailPage() {
               value={<StatusBadge status={form.status} />}
             />
             <InfoRow label="Cabang" value={form.branch_office} />
-            <InfoRow label="Dibuat Oleh" value={form.creator_name} />
+            <InfoRow
+              label="Dibuat Oleh"
+              value={formatActor(form.creator_name, form.creator_email)}
+            />
             <InfoRow
               label="Tanggal Dibuat"
               value={formatDateTime(form.created_at)}
@@ -228,14 +231,22 @@ export default function FormCr9DetailPage() {
                 </p>
               )}
             </div>
-            <div className="space-y-1">
-              <FileCard label="Kwitansi" storedPath={form.receipt_url} />
-              {form.receipt_url_added_at && (
-                <p className="text-xs text-muted-foreground px-1">
-                  Diunggah pada {formatDateTime(form.receipt_url_added_at)}
-                </p>
-              )}
-            </div>
+            {form.receipts && form.receipts.length > 0 ? (
+              form.receipts.map((r, i) => (
+                <div key={r.id} className="space-y-1">
+                  <FileCard
+                    label={`Kwitansi ${form.receipts?.length === 1 ? "" : i + 1}`}
+                    storedPath={r.storage_path}
+                  />
+                  <p className="text-xs text-muted-foreground px-1">
+                    Diunggah pada {formatDateTime(r.added_at)}
+                    {r.added_by_name && ` oleh ${r.added_by_name}`}
+                  </p>
+                </div>
+              ))
+            ) : (
+              <FileCard label="Kwitansi" storedPath={null} />
+            )}
           </div>
         </CardContent>
       </Card>

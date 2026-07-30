@@ -12,7 +12,24 @@ const apiClient = axios.create({
 
 apiClient.interceptors.response.use(
   (res) => res,
-  (err) => {
+  async (err) => {
+    // Request dengan responseType "blob" (mis. download PDF) bikin body error
+    // JSON dari backend ikut dikembalikan sebagai Blob, bukan object biasa —
+    // perlu di-parse manual supaya pesan error aslinya tetap muncul.
+    if (
+      axios.isAxiosError(err) &&
+      err.response?.data instanceof Blob &&
+      err.response.data.type.includes("json")
+    ) {
+      try {
+        const parsed = JSON.parse(await err.response.data.text())
+        return Promise.reject(
+          new Error((parsed?.message as string) ?? "Terjadi kesalahan"),
+        )
+      } catch {
+        // jatuh ke penanganan generik di bawah kalau body-nya ternyata bukan JSON valid
+      }
+    }
     const message =
       axios.isAxiosError(err) && err.response?.data?.message
         ? (err.response.data.message as string)

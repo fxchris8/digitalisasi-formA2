@@ -15,7 +15,7 @@ export const listFormA2Schema = z.object({
   to_date: z.string().optional(),
 })
 
-// Staff SPM mengirim CR9/A2 kembali ke staff cabang untuk perbaikan data
+// Admin SPM mengirim CR9/A2 kembali ke staff cabang untuk perbaikan data
 // (seafarer code salah, dokumen keliru, dll) — sebelum form pernah diajukan
 // ke manager sama sekali. Target selalu staff_cabang, jadi tidak perlu dipilih.
 export const requestCabangRevisionSchema = z.object({

@@ -6,7 +6,11 @@ const router: Router = Router()
 
 router.use(authenticate)
 
-// POST /api/extraction/receipt — ekstrak data dari kwitansi yang sudah diupload (staff & admin)
-router.post("/receipt", authorize("admin", "staff"), extractReceiptHandler)
+// POST /api/extraction/receipt — ekstrak data dari kwitansi yang sudah diupload
+router.post(
+  "/receipt",
+  authorize("admin", "staff", "admin_spm"),
+  extractReceiptHandler,
+)
 
 export { router as extractionRouter }

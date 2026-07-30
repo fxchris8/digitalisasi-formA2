@@ -62,3 +62,11 @@ export async function requestCabangRevision(
   )
   return unwrap(res.data)
 }
+
+/** PDF gabungan CR9+A2+dokumen — hanya tersedia setelah Finance approve. */
+export async function exportFormA2Pdf(id: string): Promise<Blob> {
+  const res = await apiClient.get(`/api/form-a2/${id}/export-pdf`, {
+    responseType: "blob",
+  })
+  return res.data as Blob
+}

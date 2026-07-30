@@ -11,8 +11,9 @@
     "db:schema-fresh": "ts-node-dev --require tsconfig-paths/register --transpile-only src/scripts/database/schema.ts -- --fresh",
     "db:seed": "ts-node-dev --require tsconfig-paths/register --transpile-only src/scripts/database/seed.ts",
     "db:import-hospitals": "ts-node-dev --require tsconfig-paths/register --transpile-only src/scripts/database/import-hospitals.ts",
-    "db:import-seaman": "ts-node-dev --require tsconfig-paths/register --transpile-only src/scripts/database/import-seaman.ts",
+    "db:import-seaman": "ts-node-dev --require tsconfig-paths/register --transpile-only src/scripts/database/import-seaman.ts && pnpm db:sync-ships",
     "db:import-kapal": "ts-node-dev --require tsconfig-paths/register --transpile-only src/scripts/database/import-kapal.ts",
+    "db:sync-ships": "ts-node-dev --require tsconfig-paths/register --transpile-only src/scripts/database/sync-ships-from-seaman.ts",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
@@ -31,6 +32,7 @@
     "morgan": "^1.10.1",
     "multer": "^2.1.0",
     "node-cron": "^4.2.1",
+    "pdf-lib": "^1.17.1",
     "pg": "^8.18.0",
     "zod": "^4.3.6"
   },
