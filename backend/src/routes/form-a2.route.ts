@@ -1,5 +1,6 @@
 import { Router } from "express"
 import {
+  exportFormA2PdfHandler,
   getFormA2ByCr9Handler,
   getFormA2Handler,
   listFormA2Handler,
@@ -22,16 +23,19 @@ router.get("/by-cr9/:cr9Id", getFormA2ByCr9Handler)
 // GET  /api/form-a2/:id                    — detail
 router.get("/:id", getFormA2Handler)
 
-// PUT  /api/form-a2/:id                    — update news_url / berita acara (staff spm & admin)
-router.put("/:id", authorize("admin", "staff"), updateFormA2Handler)
+// GET  /api/form-a2/:id/export-pdf         — PDF gabungan (finance/admin, setelah approved)
+router.get("/:id/export-pdf", exportFormA2PdfHandler)
 
-// POST /api/form-a2/:id/submit             — ajukan ke manager Nautica (staff spm & admin)
-router.post("/:id/submit", authorize("admin", "staff"), submitFormA2Handler)
+// PUT  /api/form-a2/:id                    — update news_url / berita acara (Admin SPM & admin)
+router.put("/:id", authorize("admin", "admin_spm"), updateFormA2Handler)
 
-// POST /api/form-a2/:id/request-cabang-revision — minta revisi ke staff cabang, sebelum pernah diajukan ke manager (staff spm & admin)
+// POST /api/form-a2/:id/submit             — ajukan ke manager Nautica (Admin SPM & admin)
+router.post("/:id/submit", authorize("admin", "admin_spm"), submitFormA2Handler)
+
+// POST /api/form-a2/:id/request-cabang-revision — minta revisi ke staff cabang, sebelum pernah diajukan ke manager (Admin SPM & admin)
 router.post(
   "/:id/request-cabang-revision",
-  authorize("admin", "staff"),
+  authorize("admin", "admin_spm"),
   requestCabangRevisionHandler,
 )
 

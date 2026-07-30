@@ -7,6 +7,7 @@
 
 export const ROLES = {
   ADMIN: "admin",
+  ADMIN_SPM: "admin_spm",
   MANAGER: "manager",
   STAFF: "staff",
   USER: "user",
@@ -66,6 +67,13 @@ const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     "manage:form-a2",
   ],
   [ROLES.STAFF]: [
+    "view:dashboard",
+    "view:form-cr9",
+    "manage:form-cr9",
+    "view:form-a2",
+    "manage:form-a2",
+  ],
+  [ROLES.ADMIN_SPM]: [
     "view:dashboard",
     "view:form-cr9",
     "manage:form-cr9",

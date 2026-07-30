@@ -42,19 +42,28 @@ function buildPageNumbers(current: number, total: number): PageItem[] {
   return pages
 }
 
+const ROLE_LABELS: Record<string, string> = {
+  admin: "Admin",
+  manager: "Manager",
+  staff: "Staff",
+  admin_spm: "Admin SPM",
+  user: "User",
+}
+
 function RoleBadge({ role }: { role: string }) {
   const map: Record<string, string> = {
     admin: "bg-purple-100 text-purple-700",
     manager: "bg-blue-100 text-blue-700",
     staff: "bg-green-100 text-green-700",
+    admin_spm: "bg-indigo-100 text-indigo-700",
     user: "bg-gray-100 text-gray-600",
   }
   const cls = map[role] ?? "bg-gray-100 text-gray-600"
   return (
     <span
-      className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium capitalize ${cls}`}
+      className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${cls}`}
     >
-      {role}
+      {ROLE_LABELS[role] ?? role}
     </span>
   )
 }

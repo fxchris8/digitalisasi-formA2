@@ -24,8 +24,13 @@ import type { CostDetailItem } from "@/types/form-cr9"
 import type { Hospital } from "@/types/hospital"
 
 interface CostDetailSectionProps {
+  /** "master-data" = CR9 Perusahaan (pilih dari dropdown hospitals),
+   *  "manual" = CR9 Reimbursement (ketik nama rumah sakit bebas). */
+  mode: "master-data" | "manual"
   hospitalLabel: string
   onHospitalSelect: (hospital: Hospital) => void
+  hospitalNameManual?: string
+  onHospitalNameManualChange?: (value: string) => void
   hospitalError?: string
   details: CostDetailItem[]
   onDetailsChange: (details: CostDetailItem[]) => void
@@ -34,8 +39,11 @@ interface CostDetailSectionProps {
 }
 
 export function CostDetailSection({
+  mode,
   hospitalLabel,
   onHospitalSelect,
+  hospitalNameManual,
+  onHospitalNameManualChange,
   hospitalError,
   details,
   onDetailsChange,
@@ -78,14 +86,30 @@ export function CostDetailSection({
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        <HospitalAutocompleteField
-          id="hospital"
-          label="Rumah Sakit"
-          value={hospitalLabel}
-          onSelect={onHospitalSelect}
-          error={hospitalError}
-          disabled={disabled}
-        />
+        {mode === "manual" ? (
+          <div className="space-y-1.5">
+            <Label htmlFor="hospital-manual">Nama Rumah Sakit</Label>
+            <Input
+              id="hospital-manual"
+              placeholder="Ketik nama rumah sakit"
+              value={hospitalNameManual ?? ""}
+              disabled={disabled}
+              onChange={(e) => onHospitalNameManualChange?.(e.target.value)}
+            />
+            {hospitalError && (
+              <p className="text-xs text-red-500">{hospitalError}</p>
+            )}
+          </div>
+        ) : (
+          <HospitalAutocompleteField
+            id="hospital"
+            label="Rumah Sakit"
+            value={hospitalLabel}
+            onSelect={onHospitalSelect}
+            error={hospitalError}
+            disabled={disabled}
+          />
+        )}
 
         {details.length > 0 && (
           <div className="rounded-lg border overflow-x-auto">

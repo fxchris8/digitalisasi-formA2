@@ -18,9 +18,9 @@ function getBranchFilter(user: JwtPayload): string | null {
 }
 
 function assertSpmOrAdmin(user: JwtPayload, action: string) {
-  const isSpmStaff = user.role === "staff" && user.department === "spm"
-  if (user.role !== "admin" && !isSpmStaff) {
-    throw new AppError(`Hanya staff SPM yang dapat ${action}`, 403, "FORBIDDEN")
+  const isAdminSpm = user.role === "admin_spm" && user.department === "spm"
+  if (user.role !== "admin" && !isAdminSpm) {
+    throw new AppError(`Hanya Admin SPM yang dapat ${action}`, 403, "FORBIDDEN")
   }
 }
 
@@ -110,7 +110,7 @@ export async function updateFormA2(
 }
 
 /**
- * Staff SPM mengirim CR9/A2 kembali ke staff cabang untuk perbaikan data —
+ * Admin SPM mengirim CR9/A2 kembali ke staff cabang untuk perbaikan data —
  * hanya bisa dilakukan sebelum form pernah diajukan ke manager sama sekali
  * (status masih 'draft'). Berbeda dari revisi dalam approval chain yang
  * dipicu Nautica/SPM-manager/Finance.

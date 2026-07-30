@@ -1,3 +1,4 @@
+import type { Cr9Type } from "@/types/form-cr9"
 import type { HospitalCategory } from "@/types/hospital"
 
 export type FormA2Status =
@@ -10,7 +11,11 @@ export type FormA2Status =
 
 export type ApprovalStep = "spm" | "nautica" | "finance"
 export type ApprovalStatus = "pending" | "approved" | "revision" | "rejected"
-export type RevisionTargetRole = "staff_cabang" | "staff_spm"
+export type RevisionTargetRole =
+  | "staff_cabang"
+  | "staff_spm"
+  | "manager_nautica"
+  | "manager_spm"
 
 export interface FormA2Revision {
   id: string
@@ -19,9 +24,13 @@ export interface FormA2Revision {
   target_role: RevisionTargetRole
   requested_by: string
   requested_at: string
+  requested_by_name?: string | null
+  requested_by_email?: string | null
   notes: string | null
   resolved_by: string | null
   resolved_at: string | null
+  resolved_by_name?: string | null
+  resolved_by_email?: string | null
   is_resolved: boolean
 }
 
@@ -29,14 +38,16 @@ export interface FormA2Detail {
   id: string
   form_a2_id: string
   description: string
-  hospital_id: string
+  hospital_id: string | null
+  hospital_name_manual: string | null
   amount: string
   created_at: string
-  // hasil JOIN ke hospitals — sama untuk semua baris dalam 1 form
+  // hasil JOIN ke hospitals — sama untuk semua baris dalam 1 form. Null kalau
+  // baris ini pakai hospital_name_manual (CR9 Reimbursement).
   hospital_name: string
-  hospital_category: HospitalCategory
-  hospital_province: string
-  hospital_city: string
+  hospital_category: HospitalCategory | null
+  hospital_province: string | null
+  hospital_city: string | null
 }
 
 export interface FormA2ApprovalLog {
@@ -49,6 +60,7 @@ export interface FormA2ApprovalLog {
   actioned_by: string
   actioned_at: string
   actioner_name?: string
+  actioner_email?: string
 }
 
 export interface FormA2 {
@@ -77,8 +89,14 @@ export interface FormA2 {
   seaman_code: string
   ship: string
   creator_name: string
+  creator_email: string
   cr9_amount: string
+  cr9_type: Cr9Type
+  cr9_is_work_accident: boolean | null
   submitted_to_manager_name: string | null
+  submitted_to_manager_email: string | null
+  news_added_by_name?: string | null
+  news_added_by_email?: string | null
 }
 
 export interface FormA2WithDetails extends FormA2 {
@@ -101,6 +119,11 @@ export interface FormA2ListParams {
 }
 
 export interface ApprovePayload {
+  percentage: number
+  notes?: string
+}
+
+export interface ResolveNominalRevisionPayload {
   percentage: number
   notes?: string
 }

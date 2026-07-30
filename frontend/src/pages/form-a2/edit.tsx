@@ -57,7 +57,7 @@ export default function FormA2EditPage() {
 
   const canManage =
     user?.role === ROLES.ADMIN ||
-    (user?.role === ROLES.STAFF && user?.department === "spm")
+    (user?.role === ROLES.ADMIN_SPM && user?.department === "spm")
 
   const loadForm = useCallback(async () => {
     if (!id) return
@@ -128,11 +128,18 @@ export default function FormA2EditPage() {
 
       await updateFormA2(id, { news_url: newsUrl })
 
-      toast.success("Berita acara berhasil disimpan")
       setNewsFile(null)
       if (fileInputRef.current) fileInputRef.current.value = ""
       setNewsStatus("idle")
-      await loadForm()
+
+      // Simpan berita acara BUKAN akhir alur — form masih 'draft' sampai
+      // diajukan ke manager. Arahkan balik ke halaman detail supaya tombol
+      // "Ajukan ke Manager Nautica" langsung terlihat, jangan biarkan user
+      // mengira formnya sudah terkirim.
+      toast.success(
+        "Berita acara tersimpan — lanjutkan dengan klik 'Ajukan ke Manager Nautica'",
+      )
+      navigate(`/form-a2/${id}`)
     } catch (err) {
       toast.error(
         err instanceof Error ? err.message : "Gagal menyimpan Form A2",
@@ -215,7 +222,8 @@ export default function FormA2EditPage() {
                       </TableCell>
                       <TableCell>{d.description}</TableCell>
                       <TableCell className="text-muted-foreground">
-                        {d.hospital_name} ({d.hospital_category})
+                        {d.hospital_name}
+                        {d.hospital_category && ` (${d.hospital_category})`}
                       </TableCell>
                       <TableCell className="text-right">
                         {formatRupiah(d.amount)}

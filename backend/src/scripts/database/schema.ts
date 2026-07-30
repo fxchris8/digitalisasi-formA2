@@ -24,6 +24,7 @@ async function schema(): Promise<void> {
           form_a2_revision,
           form_a2_approval_log,
           form_a2_detail,
+          form_cr9_receipt,
           form_a2,
           form_cr9,
           form_number_counter,
@@ -276,6 +277,90 @@ async function schema(): Promise<void> {
         resolved_at   TIMESTAMP,
         is_resolved   BOOLEAN         NOT NULL DEFAULT FALSE
       )
+    `)
+
+    // ── ADDITIVE MIGRATIONS (aman dijalankan berulang, tidak menghapus data) ──
+    // Sistem sudah dipakai dengan data asli, jadi perubahan skema selanjutnya
+    // TIDAK boleh lewat --fresh reset — semua lewat ALTER aditif di sini.
+
+    // Tipe CR9: 'perusahaan' (default, existing) vs 'reimbursement' (baru).
+    await client.query(/* sql */ `
+      ALTER TABLE form_cr9 ADD COLUMN IF NOT EXISTS cr9_type VARCHAR(20) NOT NULL DEFAULT 'perusahaan'
+    `)
+    await client.query(/* sql */ `
+      ALTER TABLE form_cr9 DROP CONSTRAINT IF EXISTS form_cr9_cr9_type_check
+    `)
+    await client.query(/* sql */ `
+      ALTER TABLE form_cr9 ADD CONSTRAINT form_cr9_cr9_type_check
+        CHECK (cr9_type IN ('perusahaan', 'reimbursement'))
+    `)
+
+    // Flag kecelakaan kerja — hanya relevan saat cr9_type = 'reimbursement'.
+    // Jika true, persentase reimbursement dikunci 100% di setiap step approval.
+    await client.query(/* sql */ `
+      ALTER TABLE form_cr9 ADD COLUMN IF NOT EXISTS is_work_accident BOOLEAN
+    `)
+
+    // form_a2_detail: hospital_id jadi nullable, tambah kolom manual untuk
+    // reimbursement (rumah sakit ketik bebas, bukan dari master data hospitals).
+    await client.query(/* sql */ `
+      ALTER TABLE form_a2_detail ALTER COLUMN hospital_id DROP NOT NULL
+    `)
+    await client.query(/* sql */ `
+      ALTER TABLE form_a2_detail ADD COLUMN IF NOT EXISTS hospital_name_manual VARCHAR(255)
+    `)
+    await client.query(/* sql */ `
+      ALTER TABLE form_a2_detail DROP CONSTRAINT IF EXISTS form_a2_detail_hospital_xor_check
+    `)
+    await client.query(/* sql */ `
+      ALTER TABLE form_a2_detail ADD CONSTRAINT form_a2_detail_hospital_xor_check
+        CHECK (
+          (hospital_id IS NOT NULL AND hospital_name_manual IS NULL) OR
+          (hospital_id IS NULL AND hospital_name_manual IS NOT NULL)
+        )
+    `)
+
+    // Kuitansi kini boleh lebih dari 1 file per CR9 — tabel anak baru.
+    await client.query(/* sql */ `
+      CREATE TABLE IF NOT EXISTS form_cr9_receipt (
+        id            UUID          PRIMARY KEY DEFAULT gen_random_uuid(),
+        form_cr9_id   UUID          NOT NULL REFERENCES form_cr9(id),
+        storage_path  VARCHAR(500)  NOT NULL,
+        added_by      UUID          REFERENCES users(id),
+        added_at      TIMESTAMP     NOT NULL DEFAULT NOW()
+      )
+    `)
+
+    // Backfill: pindahkan receipt_url tunggal yang sudah ada ke tabel baru
+    // (idempoten — di-skip kalau form_cr9 itu sudah punya baris di sana).
+    await client.query(/* sql */ `
+      INSERT INTO form_cr9_receipt (form_cr9_id, storage_path, added_by, added_at)
+      SELECT f.id, f.receipt_url, f.receipt_url_added_by, COALESCE(f.receipt_url_added_at, f.created_at)
+      FROM form_cr9 f
+      WHERE f.receipt_url IS NOT NULL
+        AND NOT EXISTS (SELECT 1 FROM form_cr9_receipt r WHERE r.form_cr9_id = f.id)
+    `)
+
+    // receipt_url lama dilonggarkan (bukan di-drop dulu) — kode baru sudah pindah
+    // pakai form_cr9_receipt; kolom lama di-drop di migrasi terpisah nanti.
+    await client.query(/* sql */ `
+      ALTER TABLE form_cr9 ALTER COLUMN receipt_url DROP NOT NULL
+    `)
+
+    // Rename role "Staff SPM" → "Admin SPM": nilai baru admin_spm (bukan reuse
+    // role admin super-user yang sudah ada), permission tetap sama seperti
+    // staff+spm sekarang + tambahan bisa membuat CR9. Idempoten (no-op re-run).
+    await client.query(/* sql */ `
+      UPDATE users SET role = 'admin_spm' WHERE role = 'staff' AND department = 'spm'
+    `)
+
+    // Revisi nominal oleh Manager SPM/Finance — perluas target revisi ke level manager.
+    await client.query(/* sql */ `
+      ALTER TABLE form_a2_revision DROP CONSTRAINT IF EXISTS form_a2_revision_target_role_check
+    `)
+    await client.query(/* sql */ `
+      ALTER TABLE form_a2_revision ADD CONSTRAINT form_a2_revision_target_role_check
+        CHECK (target_role IN ('staff_cabang', 'staff_spm', 'manager_nautica', 'manager_spm'))
     `)
 
     await client.query("COMMIT")

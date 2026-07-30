@@ -35,3 +35,12 @@ export function formatDate(value: string | Date) {
     year: "numeric",
   })
 }
+
+/** Gabungkan nama + email aktor untuk ditampilkan di remark/timeline, mis. "Budi (budi@spil.co.id)". */
+export function formatActor(
+  name: string | null | undefined,
+  email?: string | null,
+): string {
+  if (!name) return "-"
+  return email ? `${name} (${email})` : name
+}

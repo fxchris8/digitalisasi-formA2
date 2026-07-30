@@ -13,7 +13,7 @@ export const createUserSchema = z
       ),
     email: z.string().email("Format email tidak valid"),
     password: z.string().min(8, "Password minimal 8 karakter"),
-    role: z.enum(["admin", "staff", "manager", "user"], {
+    role: z.enum(["admin", "staff", "admin_spm", "manager", "user"], {
       error: "Role tidak valid",
     }),
     department: z
@@ -47,7 +47,7 @@ export const updateUserSchema = z
       .optional(),
     email: z.string().email("Format email tidak valid").optional(),
     role: z
-      .enum(["admin", "staff", "manager", "user"], {
+      .enum(["admin", "staff", "admin_spm", "manager", "user"], {
         error: "Role tidak valid",
       })
       .optional(),

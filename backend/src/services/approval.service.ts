@@ -1,4 +1,4 @@
-import type { ApprovalStep } from "@/models/form-a2.model"
+import type { ApprovalStep, RevisionTargetRole } from "@/models/form-a2.model"
 import * as approvalRepo from "@/repositories/approval.repository"
 import * as repo from "@/repositories/form-a2.repository"
 import type { JwtPayload } from "@/types/auth"
@@ -7,8 +7,36 @@ import type {
   ApprovalLogQueryDto,
   ApproveDto,
   RejectDto,
+  ResolveNominalRevisionDto,
   RevisionDto,
 } from "@/validations/approval.validation"
+
+/**
+ * Manager mana yang harus memperbaiki kalau target revisi nominal ini —
+ * cuma valid diminta dari step SETELAHnya (SPM minta ke Nautica, Finance
+ * minta ke SPM). Manager Nautica tidak punya step manager sebelumnya, jadi
+ * tidak pernah muncul di sini. Dipakai untuk memvalidasi PERMINTAAN revisi.
+ */
+const NOMINAL_REVISION_TARGET_BY_STEP: Partial<
+  Record<ApprovalStep, RevisionTargetRole>
+> = {
+  spm: "manager_nautica",
+  finance: "manager_spm",
+}
+
+/**
+ * Kebalikan dari peta di atas — dipakai untuk memvalidasi siapa yang boleh
+ * MENYELESAIKAN revisi nominal: step approver sendiri harus cocok dengan
+ * "nama"-nya di target_role (nautica menyelesaikan target manager_nautica,
+ * spm menyelesaikan target manager_spm). Finance tidak pernah jadi target,
+ * jadi tidak pernah muncul di sini.
+ */
+const MANAGER_TARGET_ROLE_BY_OWN_STEP: Partial<
+  Record<ApprovalStep, RevisionTargetRole>
+> = {
+  nautica: "manager_nautica",
+  spm: "manager_spm",
+}
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -45,6 +73,27 @@ function assertFormPendingAtStep(
   }
 }
 
+/**
+ * CR9 Reimbursement dengan kecelakaan kerja = persentase reimbursement
+ * terkunci 100% di setiap step approval, tidak bisa diubah approver.
+ */
+function assertPercentageAllowed(
+  form: Awaited<ReturnType<typeof repo.findById>>,
+  percentage: number,
+) {
+  if (
+    form?.cr9_type === "reimbursement" &&
+    form.cr9_is_work_accident &&
+    percentage !== 100
+  ) {
+    throw new AppError(
+      "Kecelakaan kerja: persentase reimbursement wajib 100% dan tidak bisa diubah",
+      422,
+      "UNPROCESSABLE",
+    )
+  }
+}
+
 // ── Services ──────────────────────────────────────────────────────────────────
 
 export async function listPendingApproval(user: JwtPayload) {
@@ -72,6 +121,7 @@ export async function approveFormA2(
   const step = assertApprover(user)
   const form = await repo.findById(id)
   assertFormPendingAtStep(form, step)
+  assertPercentageAllowed(form, dto.percentage)
 
   const cr9Amount = Number(form?.cr9_amount ?? 0)
   const approvedAmount = (cr9Amount * dto.percentage) / 100
@@ -101,6 +151,19 @@ export async function requestRevisionFormA2(
   const form = await repo.findById(id)
   assertFormPendingAtStep(form, step)
 
+  if (dto.target === "manager_nautica" || dto.target === "manager_spm") {
+    const expectedTarget = NOMINAL_REVISION_TARGET_BY_STEP[step]
+    if (dto.target !== expectedTarget) {
+      throw new AppError(
+        step === "nautica"
+          ? "Manager Nautica tidak dapat meminta revisi nominal (tidak ada step manager sebelumnya)"
+          : "Target revisi nominal tidak valid untuk step ini",
+        422,
+        "UNPROCESSABLE",
+      )
+    }
+  }
+
   const updated = await repo.requestRevision(
     id,
     step,
@@ -111,6 +174,69 @@ export async function requestRevisionFormA2(
   if (!updated) {
     throw new AppError(
       "Gagal mengajukan revisi Form A2",
+      500,
+      "INTERNAL_SERVER_ERROR",
+    )
+  }
+  return updated
+}
+
+/**
+ * Manager (Nautica/SPM) menyelesaikan revisi NOMINAL yang diminta step
+ * setelahnya, dengan approve ulang pakai persentase yang sudah diperbaiki.
+ * Beda dari resolusi revisi staff (`submitFormA2ToManager`) — di sini yang
+ * menyelesaikan adalah manager, bukan staff cabang/Admin SPM.
+ */
+export async function resolveNominalRevisionFormA2(
+  user: JwtPayload,
+  id: string,
+  dto: ResolveNominalRevisionDto,
+) {
+  const step = assertApprover(user)
+  const form = await repo.findById(id)
+  if (!form) throw new AppError("Form A2 tidak ditemukan", 404, "NOT_FOUND")
+  if (form.status !== "revision") {
+    throw new AppError(
+      "Form A2 tidak sedang menunggu revisi nominal",
+      422,
+      "UNPROCESSABLE",
+    )
+  }
+
+  const activeRevision = await repo.findActiveRevision(id)
+  const expectedTarget = MANAGER_TARGET_ROLE_BY_OWN_STEP[step]
+  if (
+    !activeRevision ||
+    !expectedTarget ||
+    activeRevision.target_role !== expectedTarget
+  ) {
+    throw new AppError(
+      "Form ini tidak menunggu revisi nominal dari Anda",
+      422,
+      "UNPROCESSABLE",
+    )
+  }
+
+  assertPercentageAllowed(form, dto.percentage)
+
+  const cr9Amount = Number(form?.cr9_amount ?? 0)
+  const approvedAmount = (cr9Amount * dto.percentage) / 100
+  const autoNotes = `Revisi nominal diselesaikan. Pengajuan disetujui dengan jumlah nominal Rp ${approvedAmount.toLocaleString("id-ID")} dari Rp ${cr9Amount.toLocaleString("id-ID")} (${dto.percentage}%)`
+  const resolvedNotes = dto.notes?.trim()
+    ? `${autoNotes}\n Keterangan: ${dto.notes.trim()}`
+    : autoNotes
+
+  const updated = await repo.resolveNominalRevision(
+    id,
+    activeRevision.id,
+    step,
+    user.id,
+    dto.percentage,
+    resolvedNotes,
+  )
+  if (!updated) {
+    throw new AppError(
+      "Gagal menyelesaikan revisi nominal",
       500,
       "INTERNAL_SERVER_ERROR",
     )

@@ -1,5 +1,6 @@
 import * as a2Repo from "@/repositories/form-a2.repository"
 import * as repo from "@/repositories/form-cr9.repository"
+import * as receiptRepo from "@/repositories/form-cr9-receipt.repository"
 import type { JwtPayload } from "@/types/auth"
 import { AppError } from "@/utils/app-error"
 import type {
@@ -13,7 +14,7 @@ import type {
 /**
  * Tentukan branch_office yang dipakai untuk form_number & counter.
  * - Cabang → pakai branch_office user
- * - Staff SPM / dept lain → pakai nama department (huruf besar)
+ * - Admin SPM / dept lain → pakai nama department (huruf besar)
  * - Admin / tidak diketahui → 'HO'
  */
 function resolveBranchOffice(user: JwtPayload): string {
@@ -32,6 +33,22 @@ function getBranchFilter(user: JwtPayload): string | null {
   if (user.role === "manager") return null
   // cabang atau role lain → filter ke branch_office sendiri
   return user.branch_office ?? "NONE"
+}
+
+/**
+ * Hanya staff cabang atau Admin SPM (dan admin) yang boleh mengelola CR9 —
+ * staff dari departemen lain (finance, nautica) tidak boleh.
+ */
+function assertCanManageCr9(user: JwtPayload, action: string) {
+  const isCabangStaff = user.role === "staff" && user.department === "cabang"
+  const isAdminSpm = user.role === "admin_spm" && user.department === "spm"
+  if (user.role !== "admin" && !isCabangStaff && !isAdminSpm) {
+    throw new AppError(
+      `Hanya staff cabang atau Admin SPM yang dapat ${action}`,
+      403,
+      "FORBIDDEN",
+    )
+  }
 }
 
 // ── Service ───────────────────────────────────────────────────────────────────
@@ -75,14 +92,7 @@ export async function getFormCr9(user: JwtPayload, id: string) {
 }
 
 export async function createFormCr9(user: JwtPayload, dto: CreateFormCr9Dto) {
-  // Hanya admin & staff yang boleh create
-  if (user.role !== "admin" && user.role !== "staff") {
-    throw new AppError(
-      "Hanya staff yang dapat membuat Form CR9",
-      403,
-      "FORBIDDEN",
-    )
-  }
+  assertCanManageCr9(user, "membuat Form CR9")
 
   const now = new Date()
   const month = now.getMonth() + 1
@@ -101,9 +111,12 @@ export async function createFormCr9(user: JwtPayload, dto: CreateFormCr9Dto) {
     ship: dto.ship,
     complaint: dto.complaint,
     cr9Url: dto.cr9_url,
-    receiptUrl: dto.receipt_url,
+    receiptUrls: dto.receipt_urls,
     diagnosis: dto.diagnosis,
-    hospitalId: dto.hospital_id,
+    cr9Type: dto.cr9_type,
+    isWorkAccident: dto.is_work_accident ?? null,
+    hospitalId: dto.hospital_id ?? null,
+    hospitalNameManual: dto.hospital_name_manual ?? null,
     details: dto.details,
   })
 
@@ -115,14 +128,7 @@ export async function updateFormCr9(
   id: string,
   dto: UpdateFormCr9Dto,
 ) {
-  // Hanya admin & staff yang boleh update
-  if (user.role !== "admin" && user.role !== "staff") {
-    throw new AppError(
-      "Hanya staff yang dapat mengubah Form CR9",
-      403,
-      "FORBIDDEN",
-    )
-  }
+  assertCanManageCr9(user, "mengubah Form CR9")
 
   const form = await repo.findById(id)
   if (!form) throw new AppError("Form CR9 tidak ditemukan", 404, "NOT_FOUND")
@@ -171,16 +177,22 @@ export async function updateFormCr9(
       "INTERNAL_SERVER_ERROR",
     )
 
+  if (dto.receipt_urls !== undefined) {
+    await receiptRepo.replaceAll(id, dto.receipt_urls, user.id)
+  }
+
   // Diagnosis & rincian biaya disimpan di Form A2 terkait, bukan di form_cr9.
   if (
     dto.diagnosis !== undefined ||
     dto.details !== undefined ||
-    dto.hospital_id !== undefined
+    dto.hospital_id !== undefined ||
+    dto.hospital_name_manual !== undefined
   ) {
     await a2Repo.replaceCr9DetailsAndDiagnosis({
       cr9Id: id,
       diagnosis: dto.diagnosis,
       hospitalId: dto.hospital_id,
+      hospitalNameManual: dto.hospital_name_manual,
       details: dto.details,
     })
   }
@@ -223,14 +235,7 @@ export async function updateFormCr9(
 }
 
 export async function submitFormCr9(user: JwtPayload, id: string) {
-  // Hanya staff & admin yang boleh submit
-  if (user.role !== "admin" && user.role !== "staff") {
-    throw new AppError(
-      "Hanya staff yang dapat mengajukan Form CR9",
-      403,
-      "FORBIDDEN",
-    )
-  }
+  assertCanManageCr9(user, "mengajukan Form CR9")
 
   const form = await repo.findById(id)
   if (!form) throw new AppError("Form CR9 tidak ditemukan", 404, "NOT_FOUND")

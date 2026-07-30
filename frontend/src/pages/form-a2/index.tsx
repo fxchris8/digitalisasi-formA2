@@ -129,7 +129,7 @@ export default function FormA2Page() {
 
   const canManage =
     user?.role === ROLES.ADMIN ||
-    (user?.role === ROLES.STAFF && user?.department === "spm")
+    (user?.role === ROLES.ADMIN_SPM && user?.department === "spm")
 
   const myStep = user ? getManagerStep(user) : null
 

@@ -124,8 +124,8 @@ export default function FormCr9Page() {
 
   const canCreateOrRevise =
     user?.role === ROLES.ADMIN ||
-    (user?.role === ROLES.STAFF &&
-      (user?.department === "cabang" || user?.department === "spm"))
+    (user?.role === ROLES.STAFF && user?.department === "cabang") ||
+    (user?.role === ROLES.ADMIN_SPM && user?.department === "spm")
 
   const canDelete = user?.role === ROLES.ADMIN
 

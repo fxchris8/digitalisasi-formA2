@@ -6,6 +6,7 @@ import type {
   ApprovePayload,
   FormA2,
   RejectPayload,
+  ResolveNominalRevisionPayload,
   RevisionPayload,
 } from "@/types/form-a2"
 
@@ -40,6 +41,17 @@ export async function requestRevisionFormA2(
 ): Promise<FormA2> {
   const res = await apiClient.post<ApiResponse<FormA2>>(
     `/api/approval/${id}/revision`,
+    payload,
+  )
+  return unwrap(res.data)
+}
+
+export async function resolveNominalRevisionFormA2(
+  id: string,
+  payload: ResolveNominalRevisionPayload,
+): Promise<FormA2> {
+  const res = await apiClient.post<ApiResponse<FormA2>>(
+    `/api/approval/${id}/resolve-nominal-revision`,
     payload,
   )
   return unwrap(res.data)

@@ -1,7 +1,19 @@
 import type { TimelineEntry } from "@/components/ui/timeline"
 import { Timeline } from "@/components/ui/timeline"
-import type { ApprovalStep, FormA2WithDetails } from "@/types/form-a2"
+import { formatActor } from "@/lib/format"
+import type {
+  ApprovalStep,
+  FormA2WithDetails,
+  RevisionTargetRole,
+} from "@/types/form-a2"
 import type { FormCr9 } from "@/types/form-cr9"
+
+const TARGET_ROLE_LABEL: Record<RevisionTargetRole, string> = {
+  staff_cabang: "Staff Cabang",
+  staff_spm: "Admin SPM",
+  manager_nautica: "Manager Nautica",
+  manager_spm: "Manager SPM",
+}
 
 const APPROVAL_STEP_LABEL: Record<string, string> = {
   spm: "Review Manager SPM",
@@ -36,7 +48,10 @@ function buildEntries(
     title: "Form CR9 & Form A2 Dibuat",
     status: "done",
     timestamp: cr9?.created_at ?? form.created_at,
-    actor: cr9?.creator_name ?? form.creator_name,
+    actor: formatActor(
+      cr9?.creator_name ?? form.creator_name,
+      cr9?.creator_email ?? form.creator_email,
+    ),
   })
 
   // 2. CR9 Diajukan ke SPM
@@ -56,7 +71,7 @@ function buildEntries(
     title: "CR9 Diajukan ke SPM",
     status: "done",
     timestamp: cr9SubmittedAt,
-    actor: cr9?.creator_name ?? null,
+    actor: cr9 ? formatActor(cr9.creator_name, cr9.creator_email) : null,
   })
 
   // 3. Berita acara diupload staff SPM — kalau belum, dan form sedang
@@ -69,6 +84,9 @@ function buildEntries(
         title: "Menunggu Revisi dari Staff Cabang",
         status: "revision",
         notes: revision?.notes ?? null,
+        actor: revision
+          ? formatActor(revision.requested_by_name, revision.requested_by_email)
+          : null,
       })
     } else {
       entries.push({
@@ -87,6 +105,7 @@ function buildEntries(
     title: "Berita Acara Diupload oleh SPM",
     status: "done",
     timestamp: form.news_added_at,
+    actor: formatActor(form.news_added_by_name, form.news_added_by_email),
   })
 
   // 4. A2 Diajukan ke Manager — sama seperti di atas, cek revisi pra-chain
@@ -98,6 +117,9 @@ function buildEntries(
         title: "Menunggu Revisi dari Staff Cabang",
         status: "revision",
         notes: revision?.notes ?? null,
+        actor: revision
+          ? formatActor(revision.requested_by_name, revision.requested_by_email)
+          : null,
       })
     } else {
       entries.push({
@@ -115,7 +137,10 @@ function buildEntries(
     title: "A2 Diajukan ke Manager Nautica",
     status: "done",
     timestamp: form.submitted_to_manager_at,
-    actor: form.submitted_to_manager_name ?? null,
+    actor: formatActor(
+      form.submitted_to_manager_name,
+      form.submitted_to_manager_email,
+    ),
   })
 
   // 5–7. Approval logs (semua, berurutan) — tiap kali sebuah step approve,
@@ -131,7 +156,7 @@ function buildEntries(
       title: APPROVAL_STEP_LABEL[log.step] ?? log.step,
       status: logStatusMap[log.status as keyof typeof logStatusMap] ?? "done",
       timestamp: log.actioned_at,
-      actor: log.actioner_name ?? null,
+      actor: formatActor(log.actioner_name, log.actioner_email),
       notes: log.notes,
       extra: log.percentage ? `Persentase: ${Number(log.percentage)}%` : null,
     })
@@ -156,12 +181,16 @@ function buildEntries(
   // tidak muncul sama sekali di timeline saat status revision.
   if (form.status === "revision") {
     const revision = form.active_revision
-    const targetLabel =
-      revision?.target_role === "staff_cabang" ? "Staff Cabang" : "Staff SPM"
+    const targetLabel = revision
+      ? TARGET_ROLE_LABEL[revision.target_role]
+      : "Admin SPM"
     entries.push({
       title: `Menunggu Revisi dari ${targetLabel}`,
       status: "revision",
       notes: revision?.notes ?? null,
+      actor: revision
+        ? formatActor(revision.requested_by_name, revision.requested_by_email)
+        : null,
     })
     if (revision) {
       const stepIdx = APPROVAL_STEPS.indexOf(revision.step)

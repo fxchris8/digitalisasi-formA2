@@ -31,12 +31,12 @@ const users: Omit<SeedUser, "password">[] = [
     branch_office: null,
   },
 
-  // ── Staff & Manager SPM ──────────────────────────────────────────────────
+  // ── Admin SPM & Manager SPM ──────────────────────────────────────────────
   {
-    full_name: "Staff SPM Satu",
-    username: "staff_spm",
-    email: "staff.spm@spil.co.id",
-    role: "staff",
+    full_name: "Admin SPM Satu",
+    username: "admin_spm",
+    email: "admin.spm@spil.co.id",
+    role: "admin_spm",
     department: "spm",
     branch_office: null,
   },
@@ -69,24 +69,6 @@ const users: Omit<SeedUser, "password">[] = [
     branch_office: null,
   },
 
-  // ── Cabang ───────────────────────────────────────────────────────────────
-  {
-    full_name: "Staff Cabang Surabaya",
-    username: "cabang_surabaya",
-    email: "cabang.surabaya@spil.co.id",
-    role: "staff",
-    department: "cabang",
-    branch_office: "Surabaya",
-  },
-  {
-    full_name: "Staff Cabang Makassar",
-    username: "cabang_makassar",
-    email: "cabang.makassar@spil.co.id",
-    role: "staff",
-    department: "cabang",
-    branch_office: "Makassar",
-  },
-
   // ── User Biasa ─────────────────────────────────────────────────────────
   {
     full_name: "User Biasa",
@@ -98,6 +80,66 @@ const users: Omit<SeedUser, "password">[] = [
   },
 ]
 
+// ── Staff Cabang ───────────────────────────────────────────────────────────
+// Satu user staff untuk tiap kantor cabang. Username & email diturunkan dari
+// nama kotanya (huruf kecil, tanpa spasi/tanda hubung) — mis. "Bau-Bau" jadi
+// `cabang_baubau` / cabang.baubau@spil.co.id.
+const branchStaffCities: string[] = [
+  "Surabaya",
+  "Balikpapan",
+  "Banjarmasin",
+  "Batam",
+  "Batulicin",
+  "Berau",
+  "Ketapang",
+  "Medan",
+  "Nunukan",
+  "Padang",
+  "Pekanbaru",
+  "Pontianak",
+  "Samarinda",
+  "Sampit",
+  "Semarang",
+  "Tarakan",
+  "Ambon",
+  "Bau-Bau",
+  "Biak",
+  "Bungku",
+  "Fak-Fak",
+  "Jayapura",
+  "Kaimana",
+  "Makassar",
+  "Luwuk",
+  "Manokwari",
+  "Merauke",
+  "Nabire",
+  "Serui",
+  "Sorong",
+  "Timika",
+  "Tual",
+  "Kendari",
+  "Bitung",
+  "Gorontalo",
+  "Palu",
+  "Ternate",
+]
+
+function branchSlug(city: string): string {
+  return city.toLowerCase().replace(/[^a-z0-9]/g, "")
+}
+
+for (const city of branchStaffCities) {
+  const slug = branchSlug(city)
+  users.push({
+    full_name: `Staff Cabang ${city}`,
+    username: `cabang_${slug}`,
+    email: `cabang.${slug}@spil.co.id`,
+    role: "staff",
+    department: "cabang",
+    branch_office: city,
+  })
+}
+
 const branchOffices: { province: string; city: string }[] = [
   { province: "Maluku", city: "Ambon" },
   { province: "Kalimantan Timur", city: "Balikpapan" },
@@ -108,6 +150,7 @@ const branchOffices: { province: string; city: string }[] = [
   { province: "Kalimantan Timur", city: "Berau" },
   { province: "Papua", city: "Biak" },
   { province: "Sulawesi Utara", city: "Bitung" },
+  { province: "Sulawesi Tengah", city: "Bungku" },
   { province: "Papua Barat", city: "Fak-Fak" },
   { province: "Gorontalo", city: "Gorontalo" },
   { province: "DKI Jakarta", city: "Jakarta" },

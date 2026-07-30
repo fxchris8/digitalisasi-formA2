@@ -38,7 +38,14 @@ type FormState = {
 
 type FormErrors = Partial<Record<keyof FormState, string>>
 
-const ROLES = ["admin", "staff", "manager", "user"]
+const ROLES = ["admin", "staff", "admin_spm", "manager", "user"]
+const ROLE_LABELS: Record<string, string> = {
+  admin: "Admin",
+  staff: "Staff",
+  admin_spm: "Admin SPM",
+  manager: "Manager",
+  user: "User",
+}
 const DEPARTMENTS = ["spm", "nautica", "finance", "cabang"]
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -243,8 +250,8 @@ export default function UsersEditPage() {
                     <SelectGroup>
                       <SelectLabel>Role</SelectLabel>
                       {ROLES.map((r) => (
-                        <SelectItem key={r} value={r} className="capitalize">
-                          {r}
+                        <SelectItem key={r} value={r}>
+                          {ROLE_LABELS[r] ?? r}
                         </SelectItem>
                       ))}
                     </SelectGroup>

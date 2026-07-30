@@ -7,9 +7,17 @@ export const approveSchema = z.object({
 
 export const revisionSchema = z.object({
   notes: z.string().min(1, "Catatan revisi wajib diisi"),
-  target: z.enum(["staff_cabang", "staff_spm"], {
-    error: "Target revisi wajib dipilih (data kelengkapan / berita acara)",
-  }),
+  target: z.enum(
+    ["staff_cabang", "staff_spm", "manager_nautica", "manager_spm"],
+    {
+      error: "Target revisi wajib dipilih",
+    },
+  ),
+})
+
+export const resolveNominalRevisionSchema = z.object({
+  percentage: z.number().min(0).max(100),
+  notes: z.string().optional(),
 })
 
 export const rejectSchema = z.object({
@@ -29,5 +37,8 @@ export const approvalLogQuerySchema = z.object({
 
 export type ApproveDto = z.infer<typeof approveSchema>
 export type RevisionDto = z.infer<typeof revisionSchema>
+export type ResolveNominalRevisionDto = z.infer<
+  typeof resolveNominalRevisionSchema
+>
 export type RejectDto = z.infer<typeof rejectSchema>
 export type ApprovalLogQueryDto = z.infer<typeof approvalLogQuerySchema>

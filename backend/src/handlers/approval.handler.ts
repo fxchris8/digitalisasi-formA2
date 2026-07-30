@@ -6,6 +6,7 @@ import {
   approvalLogQuerySchema,
   approveSchema,
   rejectSchema,
+  resolveNominalRevisionSchema,
   revisionSchema,
 } from "@/validations/approval.validation"
 
@@ -81,6 +82,29 @@ export async function requestRevisionHandler(
       dto,
     )
     sendSuccess(res, "Revisi berhasil diajukan", result)
+  } catch (err) {
+    next(err)
+  }
+}
+
+export async function resolveNominalRevisionHandler(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    if (!req.user) {
+      next(new AppError("Unauthorized", 401, "UNAUTHORIZED"))
+      return
+    }
+    const id = req.params.id as string
+    const dto = resolveNominalRevisionSchema.parse(req.body)
+    const result = await approvalService.resolveNominalRevisionFormA2(
+      req.user,
+      id,
+      dto,
+    )
+    sendSuccess(res, "Revisi nominal berhasil diselesaikan", result)
   } catch (err) {
     next(err)
   }

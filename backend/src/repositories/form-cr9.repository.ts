@@ -1,5 +1,6 @@
 import pool from "@/config/database"
 import type { FormCr9, FormCr9WithCreator } from "@/models/form-cr9.model"
+import * as receiptRepo from "@/repositories/form-cr9-receipt.repository"
 import type { UpdateFormCr9Dto } from "@/validations/form-cr9.validation"
 
 // ── CRUD ──────────────────────────────────────────────────────────────────────
@@ -62,6 +63,7 @@ export async function findAll(params: {
       SELECT
         f.*,
         u.full_name AS creator_name,
+        u.email AS creator_email,
         a.id AS form_a2_id,
         a.status AS a2_status,
         rev.id IS NOT NULL AS needs_cabang_revision,
@@ -89,6 +91,7 @@ export async function findById(id: string): Promise<FormCr9WithCreator | null> {
       SELECT
         f.*,
         u.full_name AS creator_name,
+        u.email AS creator_email,
         a.id AS form_a2_id,
         a.status AS a2_status,
         rev.id IS NOT NULL AS needs_cabang_revision,
@@ -105,7 +108,11 @@ export async function findById(id: string): Promise<FormCr9WithCreator | null> {
     `,
     [id],
   )
-  return result.rows[0] ?? null
+  const form = result.rows[0]
+  if (!form) return null
+
+  form.receipts = await receiptRepo.findAllByCr9Id(id)
+  return form
 }
 
 /**
@@ -193,18 +200,22 @@ export async function update(
     fields.push(`complaint = $${idx++}`)
     values.push(dto.complaint)
   }
+  if (dto.cr9_type !== undefined) {
+    fields.push(`cr9_type = $${idx++}`)
+    values.push(dto.cr9_type)
+  }
+  if (dto.is_work_accident !== undefined) {
+    fields.push(`is_work_accident = $${idx++}`)
+    values.push(dto.is_work_accident)
+  }
   if (dto.cr9_url !== undefined) {
     fields.push(`cr9_url = $${idx++}`)
     fields.push(`cr9_url_added_by = $${idx++}`)
     fields.push(`cr9_url_added_at = NOW()`)
     values.push(dto.cr9_url, userId)
   }
-  if (dto.receipt_url !== undefined) {
-    fields.push(`receipt_url = $${idx++}`)
-    fields.push(`receipt_url_added_by = $${idx++}`)
-    fields.push(`receipt_url_added_at = NOW()`)
-    values.push(dto.receipt_url, userId)
-  }
+  // receipt_urls (kuitansi, bisa >1 file) ditangani terpisah lewat
+  // form-cr9-receipt.repository.ts replaceAll(), bukan kolom di tabel ini.
   // `amount` tidak diupdate manual di sini — selalu disinkronkan dari SUM rincian
   // biaya lewat `replaceCr9DetailsAndDiagnosis` (form-a2.repository.ts) saat
   // `dto.details` berubah.
@@ -251,6 +262,9 @@ export async function removeCascade(id: string): Promise<boolean> {
       [id],
     )
     await client.query(`DELETE FROM form_a2 WHERE form_cr9_id = $1`, [id])
+    await client.query(`DELETE FROM form_cr9_receipt WHERE form_cr9_id = $1`, [
+      id,
+    ])
 
     const result = await client.query(`DELETE FROM form_cr9 WHERE id = $1`, [
       id,
