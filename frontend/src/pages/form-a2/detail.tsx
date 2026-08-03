@@ -1,5 +1,5 @@
 import { AlertTriangle, Download, Info } from "lucide-react"
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import { useNavigate, useParams } from "react-router"
 import { toast } from "sonner"
 import {
@@ -226,27 +226,31 @@ export default function FormA2DetailPage() {
         ? STEP_LABEL[form.active_revision.step]
         : STEP_LABEL.nautica
 
+  const loadDetail = useCallback(async () => {
+    if (!id) return
+    const a2 = await getFormA2(id)
+    setForm(a2)
+    // Data CR9 hanya pelengkap (dokumen & info pembuat) — progres timeline
+    // sepenuhnya diambil dari data A2, jadi kegagalan di sini tidak membuat
+    // timeline salah tampil.
+    try {
+      setCr9(await getFormCr9(a2.form_cr9_id))
+    } catch {
+      setCr9(null)
+    }
+  }, [id])
+
   useEffect(() => {
     if (!id) return
     setLoading(true)
-    getFormA2(id)
-      .then(async (a2) => {
-        setForm(a2)
-        try {
-          const linkedCr9 = await getFormCr9(a2.form_cr9_id)
-          setCr9(linkedCr9)
-        } catch {
-          // CR9 load failure is non-fatal — show A2 data without CR9 extras
-        }
-      })
+    loadDetail()
       .catch(() => toast.error("Gagal memuat Form A2"))
       .finally(() => setLoading(false))
-  }, [id])
+  }, [id, loadDetail])
 
+  /** Muat ulang SELURUH data detail (A2 + CR9) setelah ada aksi approval. */
   async function refresh() {
-    if (!id) return
-    const updated = await getFormA2(id)
-    setForm(updated)
+    await loadDetail()
   }
 
   async function handleSubmit() {
