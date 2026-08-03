@@ -259,7 +259,26 @@ export default function FormCr9DetailPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <Cr9Timeline form={form} a2={a2} />
+          {/* Riwayat approval ada di Form A2. Kalau datanya gagal dimuat,
+              tampilkan pemberitahuan — jangan render timeline setengah jadi
+              yang terlihat seolah pengajuannya mundur ke tahap awal. */}
+          {!a2 && form.form_a2_id ? (
+            <div className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+              <AlertTriangle className="h-5 w-5 shrink-0 mt-0.5" />
+              <div>
+                <p className="font-medium">Riwayat approval gagal dimuat</p>
+                <button
+                  type="button"
+                  className="mt-1 text-amber-900 underline hover:no-underline"
+                  onClick={() => window.location.reload()}
+                >
+                  Muat ulang halaman
+                </button>
+              </div>
+            </div>
+          ) : (
+            <Cr9Timeline form={form} a2={a2} />
+          )}
         </CardContent>
       </Card>
 

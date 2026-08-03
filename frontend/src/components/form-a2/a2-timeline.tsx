@@ -54,8 +54,11 @@ function buildEntries(
     ),
   })
 
-  // 2. CR9 Diajukan ke SPM
-  const cr9SubmittedAt = cr9?.submitted_at
+  // 2. CR9 Diajukan ke SPM — `form.submitted_at` milik A2 sendiri sudah diisi
+  // bersamaan saat CR9 diajukan (lihat submitCr9 di backend), jadi progres
+  // timeline TIDAK bergantung pada data CR9 yang di-fetch terpisah. Kalau
+  // fetch itu gagal, timeline tetap akurat. `cr9` hanya melengkapi info aktor.
+  const cr9SubmittedAt = form.submitted_at ?? cr9?.submitted_at
 
   if (!cr9SubmittedAt) {
     entries.push({ title: "CR9 Diajukan ke SPM", status: "pending" })
