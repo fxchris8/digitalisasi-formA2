@@ -22,9 +22,11 @@ export function errorHandler(
   }
 
   if (err instanceof Error) {
+    console.error("[SERVER_ERROR]", err)
     sendError(res, err.message, "INTERNAL_SERVER_ERROR", 500)
     return
   }
 
+  console.error("[SERVER_ERROR]", err)
   sendError(res, "An unexpected error occurred", "INTERNAL_SERVER_ERROR", 500)
 }

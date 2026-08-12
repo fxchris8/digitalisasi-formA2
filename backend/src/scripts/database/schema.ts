@@ -1,14 +1,14 @@
 import * as dotenv from "dotenv"
 import { expand } from "dotenv-expand"
-import { Pool } from "pg"
+import type { Pool } from "pg"
 
 expand(dotenv.config())
 
-const pool = new Pool({ connectionString: process.env.DATABASE_URL })
-
-const isFresh = process.argv.includes("--fresh")
-
-async function schema(): Promise<void> {
+export async function applySchema(
+  pool: Pool,
+  options?: { fresh?: boolean },
+): Promise<void> {
+  const isFresh = options?.fresh ?? false
   const client = await pool.connect()
 
   try {
@@ -371,11 +371,17 @@ async function schema(): Promise<void> {
   } catch (err) {
     await client.query("ROLLBACK")
     console.error("[db] Failed to create schema:", err)
-    process.exit(1)
+    throw err
   } finally {
     client.release()
-    await pool.end()
   }
 }
 
-schema()
+if (process.argv[1]?.includes("schema")) {
+  const { Pool: PgPool } = require("pg")
+  const pool = new PgPool({ connectionString: process.env.DATABASE_URL })
+  const isFresh = process.argv.includes("--fresh")
+  applySchema(pool, { fresh: isFresh })
+    .then(() => pool.end())
+    .catch(() => process.exit(1))
+}
