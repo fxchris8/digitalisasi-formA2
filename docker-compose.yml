@@ -9,15 +9,17 @@ services:
       - "${BACKEND_PORT:-18293}:3000"
     volumes:
       - storage:/app/storage
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     networks:
       - traefik-net
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=traefik-net"
-      - "traefik.http.routers.crewmed-backend.rule=Host(`pe.spil.co.id`) && (PathPrefix(`/crewmed-backend`) || PathPrefix(`/crewmed-api`))"
+      - "traefik.http.routers.crewmed-backend.rule=Host(`pe.spil.co.id`) && (PathPrefix(`/crewmed-backend`) || PathPrefix(`/crewmed-api`) || PathPrefix(`/api`))"
       - "traefik.http.routers.crewmed-backend.entrypoints=websecure"
       - "traefik.http.routers.crewmed-backend.tls=true"
-      - "traefik.http.routers.crewmed-backend-pe.rule=Host(`pe.spil.co.id`) && (PathPrefix(`/crewmed-backend`) || PathPrefix(`/crewmed-api`))"
+      - "traefik.http.routers.crewmed-backend-pe.rule=Host(`pe.spil.co.id`) && (PathPrefix(`/crewmed-backend`) || PathPrefix(`/crewmed-api`) || PathPrefix(`/api`))"
       - "traefik.http.routers.crewmed-backend-pe.entrypoints=websecure"
       - "traefik.http.routers.crewmed-backend-pe.tls=true"
       - "traefik.http.routers.crewmed-backend-pe.service=crewmed-backend"
