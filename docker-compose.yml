@@ -14,15 +14,15 @@ services:
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=traefik-net"
-      - "traefik.http.routers.crewmed-backend.rule=Host(`pe.spil.co.id`) && PathPrefix(`/crewmed-backend`)"
+      - "traefik.http.routers.crewmed-backend.rule=Host(`pe.spil.co.id`) && (PathPrefix(`/crewmed-backend`) || PathPrefix(`/crewmed-api`))"
       - "traefik.http.routers.crewmed-backend.entrypoints=websecure"
       - "traefik.http.routers.crewmed-backend.tls=true"
-      - "traefik.http.routers.crewmed-backend-pe.rule=Host(`pe.spil.co.id`) && PathPrefix(`/crewmed-backend`)"
+      - "traefik.http.routers.crewmed-backend-pe.rule=Host(`pe.spil.co.id`) && (PathPrefix(`/crewmed-backend`) || PathPrefix(`/crewmed-api`))"
       - "traefik.http.routers.crewmed-backend-pe.entrypoints=websecure"
       - "traefik.http.routers.crewmed-backend-pe.tls=true"
       - "traefik.http.routers.crewmed-backend-pe.service=crewmed-backend"
       - "traefik.http.services.crewmed-backend.loadbalancer.server.port=3000"
-      - "traefik.http.middlewares.crewmed-backend-strip.stripprefix.prefixes=/crewmed-backend"
+      - "traefik.http.middlewares.crewmed-backend-strip.stripprefix.prefixes=/crewmed-backend,/crewmed-api"
       - "traefik.http.routers.crewmed-backend.middlewares=crewmed-backend-strip"
       - "traefik.http.routers.crewmed-backend-pe.middlewares=crewmed-backend-strip"
     restart: unless-stopped
