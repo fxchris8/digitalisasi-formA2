@@ -3,19 +3,28 @@ services:
     build:
       context: .
       dockerfile: backend/Dockerfile
+    container_name: crewmed-backend
     env_file: .env
     ports:
       - "${BACKEND_PORT:-18293}:3000"
     volumes:
       - storage:/app/storage
     networks:
-      - traefik
+      - traefik-net
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.crewmed-backend.rule=Host(`${BACKEND_DOMAIN}`)"
-      - "traefik.http.routers.crewmed-backend.entrypoints=${TRAEFIK_ENTRYPOINT:-websecure}"
-      - "traefik.http.routers.crewmed-backend.tls.certresolver=${TRAEFIK_CERTRESOLVER:-letsencrypt}"
+      - "traefik.docker.network=traefik-net"
+      - "traefik.http.routers.crewmed-backend.rule=Host(`pe.spil.co.id`) && PathPrefix(`/crewmed-backend`)"
+      - "traefik.http.routers.crewmed-backend.entrypoints=websecure"
+      - "traefik.http.routers.crewmed-backend.tls=true"
+      - "traefik.http.routers.crewmed-backend-pe.rule=Host(`pe.spil.co.id`) && PathPrefix(`/crewmed-backend`)"
+      - "traefik.http.routers.crewmed-backend-pe.entrypoints=websecure"
+      - "traefik.http.routers.crewmed-backend-pe.tls=true"
+      - "traefik.http.routers.crewmed-backend-pe.service=crewmed-backend"
       - "traefik.http.services.crewmed-backend.loadbalancer.server.port=3000"
+      - "traefik.http.middlewares.crewmed-backend-strip.stripprefix.prefixes=/crewmed-backend"
+      - "traefik.http.routers.crewmed-backend.middlewares=crewmed-backend-strip"
+      - "traefik.http.routers.crewmed-backend-pe.middlewares=crewmed-backend-strip"
     restart: unless-stopped
 
   frontend:
@@ -24,23 +33,28 @@ services:
       dockerfile: frontend/Dockerfile
       args:
         VITE_API_URL: "${VITE_API_URL}"
+        VITE_BASE_PATH: "${VITE_BASE_PATH:-/crewmed-frontend/}"
+    container_name: crewmed-frontend
+    env_file: .env
     ports:
       - "${FRONTEND_PORT:-8099}:80"
     networks:
-      - traefik
+      - traefik-net
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.crewmed-frontend.rule=Host(`${FRONTEND_DOMAIN}`)"
-      - "traefik.http.routers.crewmed-frontend.entrypoints=${TRAEFIK_ENTRYPOINT:-websecure}"
-      - "traefik.http.routers.crewmed-frontend.tls.certresolver=${TRAEFIK_CERTRESOLVER:-letsencrypt}"
+      - "traefik.docker.network=traefik-net"
+      - "traefik.http.routers.crewmed-frontend.rule=Host(`pe.spil.co.id`) && PathPrefix(`/crewmed-frontend`)"
+      - "traefik.http.routers.crewmed-frontend.entrypoints=websecure"
+      - "traefik.http.routers.crewmed-frontend.tls=true"
       - "traefik.http.services.crewmed-frontend.loadbalancer.server.port=80"
+      - "traefik.http.middlewares.crewmed-frontend-strip.stripprefix.prefixes=/crewmed-frontend"
+      - "traefik.http.routers.crewmed-frontend.middlewares=crewmed-frontend-strip"
     restart: unless-stopped
     depends_on:
       - backend
 
 networks:
-  traefik:
-    name: "${TRAEFIK_NETWORK:-traefik-public}"
+  traefik-net:
     external: true
 
 volumes:

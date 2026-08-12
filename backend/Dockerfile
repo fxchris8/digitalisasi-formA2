@@ -3,7 +3,7 @@ FROM node:22-alpine AS build
 
 RUN apk upgrade --no-cache
 
-RUN corepack enable && corepack prepare pnpm@latest --activate
+RUN corepack enable && corepack prepare pnpm@10.28.2 --activate
 
 WORKDIR /app
 
@@ -28,7 +28,7 @@ RUN npx --yes tsc-alias -p tsconfig.json
 # Buat isolated production deployment — hanya prod deps, siap di-copy ke runner
 # pnpm deploy menangani ekstraksi deps dari workspace secara otomatis
 WORKDIR /app
-RUN pnpm deploy --filter backend --prod /deploy
+RUN pnpm deploy --filter backend --legacy --prod /deploy
 
 # Stage 2: Production
 FROM node:22-alpine AS runner

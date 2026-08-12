@@ -3,7 +3,7 @@ FROM node:22-alpine AS build
 
 RUN apk upgrade --no-cache
 
-RUN corepack enable && corepack prepare pnpm@latest --activate
+RUN corepack enable && corepack prepare pnpm@10.28.2 --activate
 
 WORKDIR /app
 
@@ -25,6 +25,10 @@ WORKDIR /app/frontend
 # Override via --build-arg jika backend ada di domain terpisah.
 ARG VITE_API_URL=
 ENV VITE_API_URL=$VITE_API_URL
+
+# VITE_BASE_PATH: path prefix tempat frontend di-serve di Traefik (default: /crewmed-frontend/)
+ARG VITE_BASE_PATH=/crewmed-frontend/
+ENV VITE_BASE_PATH=$VITE_BASE_PATH
 
 RUN pnpm run build
 
