@@ -43,7 +43,11 @@ export default function LoginPage() {
     <div className="flex items-center justify-center min-h-screen bg-white">
       <Card className="w-full max-w-md">
         <CardHeader className="flex flex-col items-center gap-3 pb-6 text-center">
-          <img src="/logo.ico" alt="Logo" className="w-16 h-full" />
+          <img
+            src={`${import.meta.env.BASE_URL}logo.ico`}
+            alt="Logo"
+            className="w-16 h-full"
+          />
           <div className="space-y-1">
             <CardTitle>Crew Medical System</CardTitle>
             <CardDescription>

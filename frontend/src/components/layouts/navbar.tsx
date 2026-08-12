@@ -1,5 +1,6 @@
 import { AlertTriangle, LogOut } from "lucide-react"
 import { useState } from "react"
+import { Link } from "react-router"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import {
@@ -38,12 +39,12 @@ export function Navbar() {
       <nav className="bg-white px-8 py-2">
         <div className="flex items-center justify-between">
           {/* Brand */}
-          <a
-            href="/"
+          <Link
+            to="/"
             className="flex items-center gap-4 hover:opacity-90 transition-opacity"
           >
             <img
-              src="/logo.ico"
+              src={`${import.meta.env.BASE_URL}logo.ico`}
               className="w-13 h-full"
               alt="SPIL Fleet Logo"
             />
@@ -55,7 +56,7 @@ export function Navbar() {
                 Crew Medical System
               </span>
             </div>
-          </a>
+          </Link>
 
           {/* Right side */}
           <div className="flex items-center gap-3">
