@@ -45,7 +45,7 @@ services:
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=traefik-net"
-      - "traefik.http.routers.crewmed-frontend.rule=Host(`pe.spil.co.id`) && PathPrefix(`/crewmed-frontend`)"
+      - "traefik.http.routers.crewmed-frontend.rule=Host(`pe.spil.co.id`) && (PathPrefix(`/crewmed-frontend`) || Path(`/logo.ico`) || Path(`/favicon.ico`))"
       - "traefik.http.routers.crewmed-frontend.entrypoints=websecure"
       - "traefik.http.routers.crewmed-frontend.tls=true"
       - "traefik.http.services.crewmed-frontend.loadbalancer.server.port=80"
