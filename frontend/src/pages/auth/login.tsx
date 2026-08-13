@@ -33,7 +33,7 @@ export default function LoginPage() {
       login(user)
       navigate("/dashboard")
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Terjadi kesalahan")
+      toast.error(err instanceof Error ? err.message : "Terjadi kesalahan!")
     } finally {
       setIsLoading(false)
     }
