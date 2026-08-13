@@ -34,7 +34,7 @@ export default function ShipCreatePage() {
       navigate(ROUTES.ship.path)
     } catch (err) {
       toast.error(
-        err instanceof Error ? err.message : "Gagal menambahkan kapal",
+        err instanceof Error ? err.message : "Gagal menambahkan kapal!",
       )
     } finally {
       setSaving(false)
