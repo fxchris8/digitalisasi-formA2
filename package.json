@@ -3,7 +3,6 @@
   "private": true,
   "packageManager": "pnpm@10.28.2",
   "scripts": {
-    "prepare": "husky",
     "lint": "biome lint .",
     "lint:strict": "biome check .",
     "format": "biome format . --write",
@@ -12,14 +11,7 @@
     "typecheck:fe": "pnpm --filter frontend run typecheck",
     "typecheck": "pnpm run typecheck:be && pnpm run typecheck:fe"
   },
-  "lint-staged": {
-    "**/*.{ts,tsx,js,jsx,json,jsonc}": "biome check --write --no-errors-on-unmatched"
-  },
   "devDependencies": {
-    "@biomejs/biome": "^2.4.4",
-    "@commitlint/cli": "^20.4.2",
-    "@commitlint/config-conventional": "^20.4.2",
-    "husky": "^9.1.7",
-    "lint-staged": "^16.2.7"
+    "@biomejs/biome": "^2.4.4"
   }
 }
